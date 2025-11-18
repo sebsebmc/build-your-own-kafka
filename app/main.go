@@ -32,29 +32,31 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
-	msg_size := make([]byte, 4)
-	conn.Read(msg_size)
-	requestBytes := append(make([]byte, binary.BigEndian.Uint32(msg_size)+4), msg_size...)
-	conn.Read(requestBytes)
-	r := new(Request)
-	r.UnmarshalBinary(requestBytes)
-	// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
-	resp := Message{message_size: 0, header: &ResponseHeader{r.correlation_id}}
-	if r.request_api_key == API_KEY_APIVERSIONS {
-		if r.request_api_version > 4 || r.request_api_key < 0 {
-			var rbody ResponseBody
-			rbody.body = make([]byte, 0)
-			rbody.body = binary.BigEndian.AppendUint16(rbody.body, 35)
-			resp.body = &rbody
-		} else {
-			var rbody ApiVersionsV4ResponseBody
-			rbody.api_keys = []ApiKeys{{api_key: API_KEY_APIVERSIONS, min_version: 0, max_version: 4}}
-			// fmt.Println("Sending APIVersions response")
-			resp.body = &rbody
+	for {
+		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		msg_size := make([]byte, 4)
+		conn.Read(msg_size)
+		requestBytes := append(make([]byte, binary.BigEndian.Uint32(msg_size)+4), msg_size...)
+		conn.Read(requestBytes)
+		r := new(Request)
+		r.UnmarshalBinary(requestBytes)
+		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
+		resp := Message{message_size: 0, header: &ResponseHeader{r.correlation_id}}
+		if r.request_api_key == API_KEY_APIVERSIONS {
+			if r.request_api_version > 4 || r.request_api_key < 0 {
+				var rbody ResponseBody
+				rbody.body = make([]byte, 0)
+				rbody.body = binary.BigEndian.AppendUint16(rbody.body, 35)
+				resp.body = &rbody
+			} else {
+				var rbody ApiVersionsV4ResponseBody
+				rbody.api_keys = []ApiKeys{{api_key: API_KEY_APIVERSIONS, min_version: 0, max_version: 4}}
+				// fmt.Println("Sending APIVersions response")
+				resp.body = &rbody
+			}
 		}
-	}
 
-	respBytes, _ := resp.MarshalBinary()
-	conn.Write(respBytes)
+		respBytes, _ := resp.MarshalBinary()
+		conn.Write(respBytes)
+	}
 }
