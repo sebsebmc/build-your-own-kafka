@@ -50,7 +50,7 @@ func handleConnection(conn net.Conn) {
 				resp.body = &rbody
 			} else {
 				var rbody ApiVersionsV4ResponseBody
-				rbody.api_keys = []ApiKeys{{api_key: API_KEY_APIVERSIONS, min_version: 0, max_version: 4}}
+				rbody.api_keys = SUPPORTED_APIS
 				// fmt.Println("Sending APIVersions response")
 				resp.body = &rbody
 			}

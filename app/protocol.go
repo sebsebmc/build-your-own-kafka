@@ -8,7 +8,29 @@ import (
 
 const UNSUPPORTED_VERSION = 35
 
+const API_KEY_FETCH = 1
 const API_KEY_APIVERSIONS = 18
+const API_KEY_DESCRIBETOPICPARTIONS = 75
+
+var SUPPORTED_APIS []ApiKeys
+
+func init() {
+	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
+		api_key:     API_KEY_APIVERSIONS,
+		min_version: 0,
+		max_version: 4,
+	})
+	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
+		api_key:     API_KEY_DESCRIBETOPICPARTIONS,
+		min_version: 0,
+		max_version: 0,
+	})
+	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
+		api_key:     API_KEY_FETCH,
+		min_version: 0,
+		max_version: 16,
+	})
+}
 
 type TaggedBuffer struct {
 	tags []string
