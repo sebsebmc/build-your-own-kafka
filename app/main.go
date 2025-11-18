@@ -8,12 +8,30 @@ import (
 	"time"
 )
 
-type Message struct {
-	message_size int
-	header       int
+type Response struct {
+	message_size int32
+	header       int32
 }
 
-func (m Message) ToBytes() []byte {
+type Request struct {
+	message_size   int32
+	api_key        int16
+	api_version    int16
+	correlation_id int32
+	client_id      string
+}
+
+func ParseRequest(in []byte) (Request, error) {
+	r := Request{}
+	r.message_size = int32(binary.BigEndian.Uint32(in))
+	r.api_key = int16(binary.BigEndian.Uint16(in[4:]))
+	r.api_version = int16(binary.BigEndian.Uint16(in[6:]))
+	r.correlation_id = int32(binary.BigEndian.Uint32(in[8:]))
+
+	return r, nil
+}
+
+func (m Response) ToBytes() []byte {
 	out := make([]byte, 0)
 	out = binary.BigEndian.AppendUint32(out, uint32(m.message_size))
 	out = binary.BigEndian.AppendUint32(out, uint32(m.header))
@@ -44,9 +62,10 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	request := make([]byte, 8)
+	requestBytes := make([]byte, 12)
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-	conn.Read(request)
-	temp := Message{0, 7}
+	conn.Read(requestBytes)
+	r, _ := ParseRequest(requestBytes)
+	temp := Response{0, r.correlation_id}
 	conn.Write(temp.ToBytes())
 }
