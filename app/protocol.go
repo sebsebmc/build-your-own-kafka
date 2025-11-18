@@ -23,7 +23,7 @@ func init() {
 	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
 		api_key:     API_KEY_DESCRIBETOPICPARTIONS,
 		min_version: 0,
-		max_version: 0,
+		max_version: 1,
 	})
 	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
 		api_key:     API_KEY_FETCH,
@@ -135,7 +135,7 @@ type ApiVersionsV4ResponseBody struct {
 func (rb ApiVersionsV4ResponseBody) AppendBinary(in []byte) ([]byte, error) {
 	in = binary.BigEndian.AppendUint16(in, uint16(rb.error_code))
 	var err error
-	in = binary.AppendVarint(in, int64(len(rb.api_keys)))
+	in = binary.AppendUvarint(in, uint64(len(rb.api_keys)))
 	for i := range rb.api_keys {
 		in, err = rb.api_keys[i].AppendBinary(in)
 		if err != nil {
