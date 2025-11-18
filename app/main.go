@@ -8,34 +8,63 @@ import (
 	"time"
 )
 
-type Response struct {
+const UNSUPPORTED_VERSION = 35
+
+type Message struct {
 	message_size int32
-	header       int32
+}
+
+type Response struct {
+	Message
+	correlation_id int32
+	body           []byte
 }
 
 type Request struct {
-	message_size   int32
-	api_key        int16
-	api_version    int16
-	correlation_id int32
-	client_id      string
+	Message
+	request_api_key     int16
+	request_api_version int16
+	correlation_id      int32
+	client_id           string
+	body                []byte
 }
 
-func ParseRequest(in []byte) (Request, error) {
-	r := Request{}
-	r.message_size = int32(binary.BigEndian.Uint32(in))
-	r.api_key = int16(binary.BigEndian.Uint16(in[4:]))
-	r.api_version = int16(binary.BigEndian.Uint16(in[6:]))
+func (m Message) AppendBinary(b []byte) ([]byte, error) {
+	bytes, err := m.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return append(b, bytes...), nil
+}
+
+func (m Message) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 0)
+	data = binary.BigEndian.AppendUint32(data, uint32(m.message_size))
+	return
+}
+
+func (m *Message) UnmarshalBinary(in []byte) error {
+	m.message_size = int32(binary.BigEndian.Uint32(in))
+	return nil
+}
+
+func (r *Request) UnmarshalBinary(in []byte) error {
+	r.Message.UnmarshalBinary(in)
+	r.request_api_key = int16(binary.BigEndian.Uint16(in[4:]))
+	r.request_api_version = int16(binary.BigEndian.Uint16(in[6:]))
 	r.correlation_id = int32(binary.BigEndian.Uint32(in[8:]))
 
-	return r, nil
+	return nil
 }
 
-func (m Response) ToBytes() []byte {
-	out := make([]byte, 0)
-	out = binary.BigEndian.AppendUint32(out, uint32(m.message_size))
-	out = binary.BigEndian.AppendUint32(out, uint32(m.header))
-	return out
+func (r Response) MarshalBinary() ([]byte, error) {
+	out, err := r.Message.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = binary.BigEndian.AppendUint32(out, uint32(r.correlation_id))
+	out = append(out, r.body...)
+	return out, nil
 }
 
 func main() {
@@ -65,7 +94,13 @@ func handleConnection(conn net.Conn) {
 	requestBytes := make([]byte, 12)
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	conn.Read(requestBytes)
-	r, _ := ParseRequest(requestBytes)
-	temp := Response{0, r.correlation_id}
-	conn.Write(temp.ToBytes())
+	r := new(Request)
+	r.UnmarshalBinary(requestBytes)
+	resp := Response{Message{0}, r.correlation_id, []byte{}}
+	if r.request_api_version > 4 {
+		resp.body = binary.BigEndian.AppendUint16(resp.body, 35)
+	}
+
+	respBytes, _ := resp.MarshalBinary()
+	conn.Write(respBytes)
 }
