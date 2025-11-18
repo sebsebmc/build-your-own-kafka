@@ -135,7 +135,7 @@ type ApiVersionsV4ResponseBody struct {
 func (rb ApiVersionsV4ResponseBody) AppendBinary(in []byte) ([]byte, error) {
 	in = binary.BigEndian.AppendUint16(in, uint16(rb.error_code))
 	var err error
-	in = binary.AppendUvarint(in, uint64(len(rb.api_keys)))
+	in = binary.AppendUvarint(in, uint64(1+len(rb.api_keys)))
 	for i := range rb.api_keys {
 		in, err = rb.api_keys[i].AppendBinary(in)
 		if err != nil {
