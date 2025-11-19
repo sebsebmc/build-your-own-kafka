@@ -4,6 +4,8 @@ import (
 	"encoding"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/google/uuid"
 )
 
 const UNSUPPORTED_VERSION = 35
@@ -12,24 +14,25 @@ const API_KEY_FETCH = 1
 const API_KEY_APIVERSIONS = 18
 const API_KEY_DESCRIBETOPICPARTIONS = 75
 
-var SUPPORTED_APIS []ApiKeys
+var SUPPORTED_APIS map[int16]ApiKeys
 
 func init() {
-	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
+	SUPPORTED_APIS = make(map[int16]ApiKeys)
+	SUPPORTED_APIS[API_KEY_APIVERSIONS] = ApiKeys{
 		api_key:     API_KEY_APIVERSIONS,
 		min_version: 0,
 		max_version: 4,
-	})
-	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
+	}
+	SUPPORTED_APIS[API_KEY_DESCRIBETOPICPARTIONS] = ApiKeys{
 		api_key:     API_KEY_DESCRIBETOPICPARTIONS,
 		min_version: 0,
 		max_version: 1,
-	})
-	SUPPORTED_APIS = append(SUPPORTED_APIS, ApiKeys{
+	}
+	SUPPORTED_APIS[API_KEY_FETCH] = ApiKeys{
 		api_key:     API_KEY_FETCH,
 		min_version: 0,
 		max_version: 16,
-	})
+	}
 }
 
 type TaggedBuffer struct {
@@ -170,4 +173,114 @@ func (k ApiKeys) AppendBinary(in []byte) ([]byte, error) {
 		return nil, err
 	}
 	return in, nil
+}
+
+type FetchResponseV16Body struct {
+	throttle_time_ms int32
+	error_code       int16
+	session_id       int32
+	responses        []TopicResponses
+}
+
+func (fr *FetchResponseV16Body) UnmarshalBinary(in []byte) error {
+	return fmt.Errorf("Unimplemented")
+}
+
+func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
+	in = binary.BigEndian.AppendUint32(in, uint32(fr.throttle_time_ms))
+	in = binary.BigEndian.AppendUint16(in, uint16(fr.error_code))
+	in = binary.BigEndian.AppendUint32(in, uint32(fr.session_id))
+	var err error
+	for _, v := range fr.responses {
+		in, err = v.AppendBinary(in)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return in, nil
+}
+
+type TopicResponses struct {
+	topic_id      uuid.UUID
+	partitions    []Partition
+	tagged_fields TaggedBuffer
+}
+
+func (tr TopicResponses) AppendBinary(in []byte) ([]byte, error) {
+	uuidBytes, err := tr.topic_id.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	in = append(in, uuidBytes...)
+	for _, v := range tr.partitions {
+		in, err = v.AppendBinary(in)
+		if err != nil {
+			return nil, err
+		}
+	}
+	in, err = tr.tagged_fields.AppendBinary(in)
+	if err != nil {
+		return nil, err
+	}
+	return in, nil
+}
+
+type Partition struct {
+	partition_index        int32
+	error_code             int16
+	high_watermark         int64
+	last_stable_offset     int64
+	log_start_offset       int64
+	aborted_transactions   []Transaction
+	preferred_read_replica int32
+	records                []Record
+	tagged_fields          TaggedBuffer
+}
+
+func (p Partition) AppendBinary(in []byte) ([]byte, error) {
+	var err error
+	in = binary.BigEndian.AppendUint32(in, uint32(p.partition_index))
+	in = binary.BigEndian.AppendUint64(in, uint64(p.log_start_offset))
+	in = binary.BigEndian.AppendUint64(in, uint64(p.last_stable_offset))
+	in = binary.BigEndian.AppendUint64(in, uint64(p.high_watermark))
+	in = binary.BigEndian.AppendUint16(in, uint16(p.error_code))
+	for _, v := range p.aborted_transactions {
+		in, err = v.AppendBinary(in)
+		if err != nil {
+			return nil, err
+		}
+	}
+	in = binary.BigEndian.AppendUint32(in, uint32(p.preferred_read_replica))
+	for _, v := range p.records {
+		in, err = v.AppendBinary(in)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return in, nil
+}
+
+type Transaction struct {
+	producer_id     int64
+	first_offset_id int64
+	tagged_fields   TaggedBuffer
+}
+
+func (t Transaction) AppendBinary(in []byte) ([]byte, error) {
+	in = binary.BigEndian.AppendUint64(in, uint64(t.producer_id))
+	in = binary.BigEndian.AppendUint64(in, uint64(t.first_offset_id))
+	in, err := t.tagged_fields.AppendBinary(in)
+	if err != nil {
+		return nil, err
+	}
+	return in, nil
+}
+
+type Record struct {
+	opaque []byte
+}
+
+func (r Record) AppendBinary(in []byte) ([]byte, error) {
+	return append(in, r.opaque...), nil
 }
