@@ -85,16 +85,35 @@ func (m *Message) UnmarshalBinary(in []byte) error {
 	return nil
 }
 
-type ResponseHeader struct {
+type ResponseHeaderV0 struct {
 	correlation_id int32
 }
 
-func (r ResponseHeader) AppendBinary(in []byte) ([]byte, error) {
+func (r ResponseHeaderV0) AppendBinary(in []byte) ([]byte, error) {
 	in = binary.BigEndian.AppendUint32(in, uint32(r.correlation_id))
 	return in, nil
 }
 
-func (r *ResponseHeader) UnmarshalBinary(in []byte) error {
+func (r *ResponseHeaderV0) UnmarshalBinary(in []byte) error {
+	r.correlation_id = int32(binary.BigEndian.Uint32(in))
+	return nil
+}
+
+type ResponseHeaderV1 struct {
+	correlation_id int32
+	tagged_fields  TaggedBuffer
+}
+
+func (r ResponseHeaderV1) AppendBinary(in []byte) ([]byte, error) {
+	in = binary.BigEndian.AppendUint32(in, uint32(r.correlation_id))
+	in, err := r.tagged_fields.AppendBinary(in)
+	if err != nil {
+		return nil, err
+	}
+	return in, nil
+}
+
+func (r *ResponseHeaderV1) UnmarshalBinary(in []byte) error {
 	r.correlation_id = int32(binary.BigEndian.Uint32(in))
 	return nil
 }

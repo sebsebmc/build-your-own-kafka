@@ -43,7 +43,7 @@ func handleConnection(conn net.Conn) {
 		r := new(Request)
 		r.UnmarshalBinary(requestBytes)
 		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
-		resp := Message{message_size: 0, header: &ResponseHeader{r.correlation_id}}
+		resp := Message{message_size: 0, header: &ResponseHeaderV0{r.correlation_id}}
 
 		support_info, ok := SUPPORTED_APIS[r.request_api_key]
 		if !ok || (r.request_api_version > support_info.max_version || r.request_api_version < support_info.min_version) {
@@ -62,6 +62,7 @@ func handleConnection(conn net.Conn) {
 			// fmt.Println("Sending APIVersions response")
 			resp.body = &rbody
 		case API_KEY_FETCH:
+			resp.header = &ResponseHeaderV1{correlation_id: r.correlation_id}
 			var rbody FetchResponseV16Body
 			rbody.responses = make([]TopicResponses, 0)
 			resp.body = &rbody
