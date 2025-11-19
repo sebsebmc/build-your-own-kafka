@@ -199,6 +199,7 @@ type FetchResponseV16Body struct {
 	error_code       int16
 	session_id       int32
 	responses        []TopicResponses
+	tagged_fields    TaggedBuffer
 }
 
 func (fr *FetchResponseV16Body) UnmarshalBinary(in []byte) error {
@@ -217,6 +218,11 @@ func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	in, err = fr.tagged_fields.AppendBinary(in)
+	if err != nil {
+		return nil, err
 	}
 	return in, nil
 }
