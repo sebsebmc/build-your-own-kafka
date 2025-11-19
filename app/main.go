@@ -42,7 +42,7 @@ func handleConnection(conn net.Conn) {
 		conn.Read(requestBytes)
 		r := new(Request)
 		r.UnmarshalBinary(requestBytes)
-		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
+		fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
 		resp := Message{message_size: 0, header: &ResponseHeaderV0{r.correlation_id}}
 
 		support_info, ok := SUPPORTED_APIS[r.request_api_key]
@@ -50,6 +50,7 @@ func handleConnection(conn net.Conn) {
 			var rbody ResponseBody
 			rbody.body = make([]byte, 0)
 			rbody.body = binary.BigEndian.AppendUint16(rbody.body, UNSUPPORTED_VERSION)
+			resp.body = &rbody
 			respBytes, _ := resp.MarshalBinary()
 			conn.Write(respBytes)
 			continue
