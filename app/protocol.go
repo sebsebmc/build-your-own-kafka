@@ -210,6 +210,8 @@ func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
 	in = binary.BigEndian.AppendUint16(in, uint16(fr.error_code))
 	in = binary.BigEndian.AppendUint32(in, uint32(fr.session_id))
 	var err error
+
+	in = binary.AppendUvarint(in, uint64(1+len(fr.responses)))
 	for _, v := range fr.responses {
 		in, err = v.AppendBinary(in)
 		if err != nil {
@@ -231,6 +233,8 @@ func (tr TopicResponses) AppendBinary(in []byte) ([]byte, error) {
 		return nil, err
 	}
 	in = append(in, uuidBytes...)
+
+	in = binary.AppendUvarint(in, uint64(1+len(tr.partitions)))
 	for _, v := range tr.partitions {
 		in, err = v.AppendBinary(in)
 		if err != nil {
