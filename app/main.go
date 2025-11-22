@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"maps"
 	"net"
@@ -34,6 +35,7 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	enc := Encoder{}
 	for {
 		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 		msg_size := make([]byte, 4)
@@ -42,33 +44,43 @@ func handleConnection(conn net.Conn) {
 		conn.Read(requestBytes)
 		r := new(Request)
 		r.UnmarshalBinary(requestBytes)
-		fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
-		resp := Message{message_size: 0, header: &ResponseHeaderV0{r.correlation_id}}
+		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
+		resp := Message{MessageSize: 0, Header: &ResponseHeaderV0{r.correlation_id}}
 
 		support_info, ok := SUPPORTED_APIS[r.request_api_key]
-		if !ok || (r.request_api_version > support_info.max_version || r.request_api_version < support_info.min_version) {
+		if !ok || (r.request_api_version > support_info.MaxVersion || r.request_api_version < support_info.MinVersion) {
 			var rbody ResponseBody
-			rbody.body = make([]byte, 0)
-			rbody.body = binary.BigEndian.AppendUint16(rbody.body, UNSUPPORTED_VERSION)
-			resp.body = &rbody
-			respBytes, _ := resp.MarshalBinary()
-			conn.Write(respBytes)
-			continue
+			rbody.Body = make([]byte, 0)
+			rbody.Body = binary.BigEndian.AppendUint16(rbody.Body, UNSUPPORTED_VERSION)
+			resp.Body = &rbody
+			// respBytes, _ := resp.MarshalBinary()
+			encBytes, err := enc.Encode(resp)
+			if err != nil {
+				return
+			}
+			// fmt.Println(hex.Dump(encBytes))
+			conn.Write(encBytes)
+			// continue
+			return
 		}
 
 		switch r.request_api_key {
 		case API_KEY_APIVERSIONS:
 			var rbody ApiVersionsV4ResponseBody
-			rbody.api_keys = slices.Collect(maps.Values(SUPPORTED_APIS))
+			rbody.ApiKeys = slices.Collect(maps.Values(SUPPORTED_APIS))
 			// fmt.Println("Sending APIVersions response")
-			resp.body = &rbody
+			resp.Body = &rbody
 		case API_KEY_FETCH:
-			resp.header = &ResponseHeaderV1{correlation_id: r.correlation_id}
+			resp.Header = &ResponseHeaderV1{CorrelationId: r.correlation_id}
 			var rbody FetchResponseV16Body
-			rbody.responses = make([]TopicResponses, 0)
-			resp.body = &rbody
+			rbody.Responses = make([]TopicResponses, 0)
+			resp.Body = &rbody
 		}
-
+		encBytes, err := enc.Encode(resp)
+		if err != nil {
+			return
+		}
+		fmt.Println(hex.Dump(encBytes))
 		respBytes, _ := resp.MarshalBinary()
 		conn.Write(respBytes)
 	}

@@ -19,35 +19,35 @@ var SUPPORTED_APIS map[int16]ApiKeys
 func init() {
 	SUPPORTED_APIS = make(map[int16]ApiKeys)
 	SUPPORTED_APIS[API_KEY_APIVERSIONS] = ApiKeys{
-		api_key:     API_KEY_APIVERSIONS,
-		min_version: 0,
-		max_version: 4,
+		ApiKey:     API_KEY_APIVERSIONS,
+		MinVersion: 0,
+		MaxVersion: 4,
 	}
 	SUPPORTED_APIS[API_KEY_DESCRIBETOPICPARTIONS] = ApiKeys{
-		api_key:     API_KEY_DESCRIBETOPICPARTIONS,
-		min_version: 0,
-		max_version: 1,
+		ApiKey:     API_KEY_DESCRIBETOPICPARTIONS,
+		MinVersion: 0,
+		MaxVersion: 1,
 	}
 	SUPPORTED_APIS[API_KEY_FETCH] = ApiKeys{
-		api_key:     API_KEY_FETCH,
-		min_version: 0,
-		max_version: 16,
+		ApiKey:     API_KEY_FETCH,
+		MinVersion: 0,
+		MaxVersion: 16,
 	}
 }
 
 type TaggedBuffer struct {
-	tags []string
+	Tags []string
 }
 
 func (t TaggedBuffer) MarshalBinary() ([]byte, error) {
-	if len(t.tags) == 0 {
+	if len(t.Tags) == 0 {
 		return []byte{0}, nil
 	}
 	return nil, fmt.Errorf("Non-Empty TaggedBuffer not implemented")
 }
 
 func (t TaggedBuffer) AppendBinary(in []byte) ([]byte, error) {
-	if len(t.tags) == 0 {
+	if len(t.Tags) == 0 {
 		in = append(in, 0)
 		return in, nil
 	}
@@ -60,53 +60,53 @@ type RequestOrResponse interface {
 }
 
 type Message struct {
-	message_size int32
-	header       RequestOrResponse
-	body         RequestOrResponse
+	MessageSize int32
+	Header      RequestOrResponse
+	Body        RequestOrResponse
 }
 
 func (m Message) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, 4)
-	data, err = m.header.AppendBinary(data)
+	data, err = m.Header.AppendBinary(data)
 	if err != nil {
 		return nil, err
 	}
-	data, err = m.body.AppendBinary(data)
+	data, err = m.Body.AppendBinary(data)
 	if err != nil {
 		return nil, err
 	}
-	m.message_size = int32(len(data) - 4)
-	binary.BigEndian.PutUint32(data, uint32(m.message_size))
+	m.MessageSize = int32(len(data) - 4)
+	binary.BigEndian.PutUint32(data, uint32(m.MessageSize))
 	return data, nil
 }
 
 func (m *Message) UnmarshalBinary(in []byte) error {
-	m.message_size = int32(binary.BigEndian.Uint32(in))
+	m.MessageSize = int32(binary.BigEndian.Uint32(in))
 	return nil
 }
 
 type ResponseHeaderV0 struct {
-	correlation_id int32
+	CorrelationId int32
 }
 
 func (r ResponseHeaderV0) AppendBinary(in []byte) ([]byte, error) {
-	in = binary.BigEndian.AppendUint32(in, uint32(r.correlation_id))
+	in = binary.BigEndian.AppendUint32(in, uint32(r.CorrelationId))
 	return in, nil
 }
 
 func (r *ResponseHeaderV0) UnmarshalBinary(in []byte) error {
-	r.correlation_id = int32(binary.BigEndian.Uint32(in))
+	r.CorrelationId = int32(binary.BigEndian.Uint32(in))
 	return nil
 }
 
 type ResponseHeaderV1 struct {
-	correlation_id int32
-	tagged_fields  TaggedBuffer
+	CorrelationId int32
+	TaggedFields  TaggedBuffer
 }
 
 func (r ResponseHeaderV1) AppendBinary(in []byte) ([]byte, error) {
-	in = binary.BigEndian.AppendUint32(in, uint32(r.correlation_id))
-	in, err := r.tagged_fields.AppendBinary(in)
+	in = binary.BigEndian.AppendUint32(in, uint32(r.CorrelationId))
+	in, err := r.TaggedFields.AppendBinary(in)
 	if err != nil {
 		return nil, err
 	}
@@ -114,21 +114,21 @@ func (r ResponseHeaderV1) AppendBinary(in []byte) ([]byte, error) {
 }
 
 func (r *ResponseHeaderV1) UnmarshalBinary(in []byte) error {
-	r.correlation_id = int32(binary.BigEndian.Uint32(in))
+	r.CorrelationId = int32(binary.BigEndian.Uint32(in))
 	return nil
 }
 
 type ResponseBody struct {
-	body []byte
+	Body []byte
 }
 
 func (r ResponseBody) AppendBinary(in []byte) ([]byte, error) {
-	in = append(in, r.body...)
+	in = append(in, r.Body...)
 	return in, nil
 }
 
 func (r *ResponseBody) UnmarshalBinary(in []byte) error {
-	r.body = in
+	r.Body = in
 	return nil
 }
 
@@ -148,24 +148,24 @@ func (r *Request) UnmarshalBinary(in []byte) error {
 }
 
 type ApiVersionsV4ResponseBody struct {
-	error_code       int16
-	api_keys         []ApiKeys
-	throttle_time_ms int32
-	tag_buffer       TaggedBuffer
+	ErrorCode      int16
+	ApiKeys        []ApiKeys
+	ThrottleTimeMs int32
+	TagBuffer      TaggedBuffer
 }
 
 func (rb ApiVersionsV4ResponseBody) AppendBinary(in []byte) ([]byte, error) {
-	in = binary.BigEndian.AppendUint16(in, uint16(rb.error_code))
+	in = binary.BigEndian.AppendUint16(in, uint16(rb.ErrorCode))
 	var err error
-	in = binary.AppendUvarint(in, uint64(1+len(rb.api_keys)))
-	for i := range rb.api_keys {
-		in, err = rb.api_keys[i].AppendBinary(in)
+	in = binary.AppendUvarint(in, uint64(1+len(rb.ApiKeys)))
+	for i := range rb.ApiKeys {
+		in, err = rb.ApiKeys[i].AppendBinary(in)
 		if err != nil {
 			return nil, err
 		}
 	}
-	in = binary.BigEndian.AppendUint32(in, uint32(rb.throttle_time_ms))
-	in, err = rb.tag_buffer.AppendBinary(in)
+	in = binary.BigEndian.AppendUint32(in, uint32(rb.ThrottleTimeMs))
+	in, err = rb.TagBuffer.AppendBinary(in)
 	if err != nil {
 		return nil, err
 	}
@@ -177,17 +177,17 @@ func (rb *ApiVersionsV4ResponseBody) UnmarshalBinary(in []byte) error {
 }
 
 type ApiKeys struct {
-	api_key     int16
-	min_version int16
-	max_version int16
-	tag_buffer  TaggedBuffer
+	ApiKey     int16
+	MinVersion int16
+	MaxVersion int16
+	TagBuffer  TaggedBuffer
 }
 
 func (k ApiKeys) AppendBinary(in []byte) ([]byte, error) {
-	in = binary.BigEndian.AppendUint16(in, uint16(k.api_key))
-	in = binary.BigEndian.AppendUint16(in, uint16(k.min_version))
-	in = binary.BigEndian.AppendUint16(in, uint16(k.max_version))
-	in, err := k.tag_buffer.AppendBinary(in)
+	in = binary.BigEndian.AppendUint16(in, uint16(k.ApiKey))
+	in = binary.BigEndian.AppendUint16(in, uint16(k.MinVersion))
+	in = binary.BigEndian.AppendUint16(in, uint16(k.MaxVersion))
+	in, err := k.TagBuffer.AppendBinary(in)
 	if err != nil {
 		return nil, err
 	}
@@ -195,11 +195,11 @@ func (k ApiKeys) AppendBinary(in []byte) ([]byte, error) {
 }
 
 type FetchResponseV16Body struct {
-	throttle_time_ms int32
-	error_code       int16
-	session_id       int32
-	responses        []TopicResponses
-	tagged_fields    TaggedBuffer
+	ThrottleTimeMs int32
+	ErrorCode      int16
+	SessionId      int32
+	Responses      []TopicResponses
+	TaggedFields   TaggedBuffer
 }
 
 func (fr *FetchResponseV16Body) UnmarshalBinary(in []byte) error {
@@ -207,20 +207,20 @@ func (fr *FetchResponseV16Body) UnmarshalBinary(in []byte) error {
 }
 
 func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
-	in = binary.BigEndian.AppendUint32(in, uint32(fr.throttle_time_ms))
-	in = binary.BigEndian.AppendUint16(in, uint16(fr.error_code))
-	in = binary.BigEndian.AppendUint32(in, uint32(fr.session_id))
+	in = binary.BigEndian.AppendUint32(in, uint32(fr.ThrottleTimeMs))
+	in = binary.BigEndian.AppendUint16(in, uint16(fr.ErrorCode))
+	in = binary.BigEndian.AppendUint32(in, uint32(fr.SessionId))
 	var err error
 
-	in = binary.AppendUvarint(in, uint64(1+len(fr.responses)))
-	for _, v := range fr.responses {
+	in = binary.AppendUvarint(in, uint64(1+len(fr.Responses)))
+	for _, v := range fr.Responses {
 		in, err = v.AppendBinary(in)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	in, err = fr.tagged_fields.AppendBinary(in)
+	in, err = fr.TaggedFields.AppendBinary(in)
 	if err != nil {
 		return nil, err
 	}
