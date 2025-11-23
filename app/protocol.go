@@ -335,15 +335,15 @@ func (p FetchResponseV16Partition) AppendBinary(in []byte) ([]byte, error) {
 }
 
 type Transaction struct {
-	producer_id     int64
-	first_offset_id int64
-	tagged_fields   TaggedBuffer
+	ProducerId    int64
+	firstOffsetId int64
+	TaggedFields  TaggedBuffer
 }
 
 func (t Transaction) AppendBinary(in []byte) ([]byte, error) {
-	in = binary.BigEndian.AppendUint64(in, uint64(t.producer_id))
-	in = binary.BigEndian.AppendUint64(in, uint64(t.first_offset_id))
-	in, err := t.tagged_fields.AppendBinary(in)
+	in = binary.BigEndian.AppendUint64(in, uint64(t.ProducerId))
+	in = binary.BigEndian.AppendUint64(in, uint64(t.firstOffsetId))
+	in, err := t.TaggedFields.AppendBinary(in)
 	if err != nil {
 		return nil, err
 	}
