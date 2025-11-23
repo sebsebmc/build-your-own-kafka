@@ -11,7 +11,7 @@ import (
 type Encoder struct {
 }
 
-func (e Encoder) Encode(value interface{}) ([]byte, error) {
+func (e Encoder) Encode(value any) ([]byte, error) {
 	out, err := e.encodeInner(value)
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func (e Encoder) Encode(value interface{}) ([]byte, error) {
 	return out, nil
 }
 
-func (e Encoder) encodeInner(value interface{}) ([]byte, error) {
+func (e Encoder) encodeInner(value any) ([]byte, error) {
 	out := make([]byte, 0)
 	vt := reflect.TypeOf(value)
 
@@ -48,7 +48,12 @@ func (e Encoder) encodeInner(value interface{}) ([]byte, error) {
 			out = binary.BigEndian.AppendUint64(out, uint64(val.Int()))
 		case reflect.Array, reflect.Slice:
 			// Special case []byte
-			if val.Type().Elem().Kind() == reflect.Uint8 {
+			if val.Type() == reflect.TypeFor[uuid.UUID]() {
+				meth := val.MethodByName("MarshalBinary")
+				results := meth.Call([]reflect.Value{})
+				out = append(out, results[0].Bytes()...)
+				continue
+			} else if val.Type().Elem().Kind() == reflect.Uint8 {
 				out = append(out, val.Bytes()...)
 				continue
 			}
@@ -80,19 +85,19 @@ func (e Encoder) encodeInner(value interface{}) ([]byte, error) {
 	return out, nil
 }
 
-func (e Encoder) Decode(in []byte, val any) error {
+func (e Encoder) Decode(in []byte, val any) (int, error) {
 	vt := reflect.TypeOf(val)
 	if vt.Kind() != reflect.Pointer {
-		return fmt.Errorf("decode requires a pointer to decode into")
+		return 0, fmt.Errorf("decode requires a pointer to decode into")
 	}
 
 	value := reflect.ValueOf(val)
-	_, err := e.decodeInner(in, value)
+	read, err := e.decodeInner(in, value)
 	if err != nil {
-		return err
+		return read, err
 	}
-
-	return nil
+	fmt.Println()
+	return read, nil
 }
 
 // decodeInner decodes into a single value and returns the number of bytes consumed
@@ -102,30 +107,40 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 
 	consumed := 0
 	switch innerType.Kind() {
+	case reflect.Int8:
+		fmt.Print(" ", int8(in[consumed]), "\n")
+		value.Set(reflect.ValueOf(int8(in[consumed])))
+		consumed += 1
 	case reflect.Int16:
+		fmt.Print(" ", int16(binary.BigEndian.Uint16(in[consumed:consumed+2])), "\n")
 		value.Set(reflect.ValueOf(int16(binary.BigEndian.Uint16(in[consumed : consumed+2]))))
 		consumed += 2
 	case reflect.Int32:
+		fmt.Print(" ", int32(binary.BigEndian.Uint32(in[consumed:consumed+4])), "\n")
 		value.Set(reflect.ValueOf(int32(binary.BigEndian.Uint32(in[consumed : consumed+4]))))
 		consumed += 4
 	case reflect.Int64:
+		fmt.Print(" ", int64(binary.BigEndian.Uint32(in[consumed:consumed+8])), "\n")
 		value.Set(reflect.ValueOf(int64(binary.BigEndian.Uint32(in[consumed : consumed+8]))))
 		consumed += 8
 	case reflect.Struct:
 		// TODO: look for UnmarshalBinary? We don't know how many bytes we read though
+		read, err := e.decodeFields(in[consumed:], value)
+		if err != nil {
+			return consumed + read, err
+		}
+		consumed += read
+	case reflect.Array:
 		if innerType == reflect.TypeFor[uuid.UUID]() {
 			var uuid uuid.UUID
 			err := uuid.UnmarshalBinary(in[consumed : consumed+16])
 			if err != nil {
 				return consumed, err
 			}
+			fmt.Print(" ", uuid, "\n")
 			value.Set(reflect.ValueOf(uuid))
+			consumed += 16
 		}
-		read, err := e.decodeFields(in[consumed:], value)
-		if err != nil {
-			return consumed + read, err
-		}
-		consumed += read
 	case reflect.Interface, reflect.Pointer:
 		innerVal := value.Elem()
 		read, err := e.decodeInner(in[consumed:], innerVal)
@@ -134,6 +149,7 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 		}
 		consumed += read
 	case reflect.String:
+		fmt.Println(" ", string(in))
 		value.SetString(string(in))
 		return len(in), nil
 	}
@@ -146,8 +162,9 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 	consumed := 0
 	for _, v := range fields {
 		fieldVal := value.FieldByIndex(v.Index)
+		fmt.Print(v.Name)
 		switch v.Type.Kind() {
-		case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
+		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			read, err := e.decodeInner(in[consumed:], fieldVal)
 			if err != nil {
 				return consumed, err
@@ -166,6 +183,17 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 					return consumed, err
 				}
 				consumed += read
+			} else if tag == "nullable" {
+				length := int16(binary.BigEndian.Uint16(in[consumed:]))
+				consumed += 2
+				if length == -1 {
+					continue
+				}
+				read, err := e.decodeInner(in[consumed:consumed+int(length)], fieldVal)
+				if err != nil {
+					return consumed, err
+				}
+				consumed += read
 			}
 		case reflect.Interface:
 			innerVal := fieldVal.Elem()
@@ -174,6 +202,45 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 				return consumed, err
 			}
 			consumed += read
+		case reflect.Slice:
+			length, read := binary.Uvarint(in[consumed:])
+			fmt.Printf(" %d %d\n", length-1, int64(length-1))
+			if read <= 0 {
+				return consumed, fmt.Errorf("unable to read compact array length, bad varint")
+			}
+			consumed += read
+			if length == 0 {
+				continue
+			}
+			sliceVal := reflect.MakeSlice(v.Type, int(length-1), int(length-1))
+			fieldVal.Set(sliceVal)
+			for i := 0; i < int(length-1); i++ {
+				read, err := e.decodeInner(in[consumed:], sliceVal.Index(i))
+				if err != nil {
+					return consumed, err
+				}
+				consumed += read
+			}
+		case reflect.Struct:
+			fmt.Print(": \n")
+			if fieldVal.Type() == reflect.TypeFor[TaggedBuffer]() {
+				consumed += 1 // Assuming empty TaggedBuffers for now
+				fieldVal.Set(reflect.ValueOf(TaggedBuffer{}))
+				continue
+			}
+			read, err := e.decodeInner(in[consumed:], fieldVal)
+			if err != nil {
+				return consumed, err
+			}
+			consumed += read
+		case reflect.Array:
+			if v.Type == reflect.TypeFor[uuid.UUID]() {
+				read, err := e.decodeInner(in[consumed:], fieldVal)
+				if err != nil {
+					return consumed, err
+				}
+				consumed += read
+			}
 		default:
 			fmt.Printf("Unable to decode %s %s\n", v.Type.String(), v.Name)
 		}

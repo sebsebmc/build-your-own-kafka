@@ -9,6 +9,7 @@ import (
 )
 
 const UNSUPPORTED_VERSION = 35
+const UNKNOWN_TOPIC_ID = 100
 
 const API_KEY_FETCH = 1
 const API_KEY_APIVERSIONS = 18
@@ -36,7 +37,7 @@ func init() {
 }
 
 type TaggedBuffer struct {
-	Tags []string
+	Tags []string `string:"nullable"`
 }
 
 func (t TaggedBuffer) MarshalBinary() ([]byte, error) {
@@ -132,14 +133,22 @@ func (r *ResponseBody) UnmarshalBinary(in []byte) error {
 	return nil
 }
 
-type Request struct {
+type RequestHeaderV1 struct {
 	RequestApiKey     int16
 	RequestApiVersion int16
 	CorrelationId     int32
-	ClientId          string `string:"compact"`
+	ClientId          string `string:"nullable"`
 }
 
-func (r *Request) UnmarshalBinary(in []byte) error {
+type RequestHeaderV2 struct {
+	RequestApiKey     int16
+	RequestApiVersion int16
+	CorrelationId     int32
+	ClientId          string `string:"nullable"`
+	TaggedFields      TaggedBuffer
+}
+
+func (r *RequestHeaderV1) UnmarshalBinary(in []byte) error {
 	r.RequestApiKey = int16(binary.BigEndian.Uint16(in))
 	r.RequestApiVersion = int16(binary.BigEndian.Uint16(in[2:]))
 	r.CorrelationId = int32(binary.BigEndian.Uint32(in[4:]))
@@ -228,26 +237,26 @@ func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
 }
 
 type TopicResponses struct {
-	topic_id      uuid.UUID
-	partitions    []FetchResponseV16Partition
-	tagged_fields TaggedBuffer
+	TopicId      uuid.UUID
+	Partitions   []FetchResponseV16Partition
+	TaggedFields TaggedBuffer
 }
 
 func (tr TopicResponses) AppendBinary(in []byte) ([]byte, error) {
-	uuidBytes, err := tr.topic_id.MarshalBinary()
+	uuidBytes, err := tr.TopicId.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
 	in = append(in, uuidBytes...)
 
-	in = binary.AppendUvarint(in, uint64(1+len(tr.partitions)))
-	for _, v := range tr.partitions {
+	in = binary.AppendUvarint(in, uint64(1+len(tr.Partitions)))
+	for _, v := range tr.Partitions {
 		in, err = v.AppendBinary(in)
 		if err != nil {
 			return nil, err
 		}
 	}
-	in, err = tr.tagged_fields.AppendBinary(in)
+	in, err = tr.TaggedFields.AppendBinary(in)
 	if err != nil {
 		return nil, err
 	}
@@ -273,12 +282,13 @@ type FetchRequestV16 struct {
 	IsolationLevel  int8
 	SessionId       int32
 	SessionEpoch    int32
-	Topics          []TopicRequest
+	Topics          []FetchRequestV16Topic
 	ForgottenTopics []ForgottenTopic
-	RackId          string
+	RackId          string `string:"compact"`
+	TaggedFields    TaggedBuffer
 }
 
-type TopicRequest struct {
+type FetchRequestV16Topic struct {
 	TopicId      uuid.UUID
 	Partitions   []FetchRequestV16Partition
 	TaggedFields TaggedBuffer
@@ -297,7 +307,7 @@ type FetchRequestV16Partition struct {
 type ForgottenTopic struct {
 	TopicId      uuid.UUID
 	Partitions   []int32
-	TaggedFields []TaggedBuffer
+	TaggedFields TaggedBuffer
 }
 
 func (p FetchResponseV16Partition) AppendBinary(in []byte) ([]byte, error) {

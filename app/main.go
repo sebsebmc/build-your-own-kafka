@@ -37,15 +37,23 @@ func handleConnection(conn net.Conn) {
 
 	enc := Encoder{}
 	for {
-		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		msg_size := make([]byte, 4)
-		conn.Read(msg_size)
-		requestBytes := append(make([]byte, binary.BigEndian.Uint32(msg_size)+4), msg_size...)
+		n, err := conn.Read(msg_size)
+		if err != nil {
+			fmt.Printf("failed to read after %d bytes: %v\n", n, err)
+			return
+		}
+		requestBytes := make([]byte, binary.BigEndian.Uint32(msg_size))
 		conn.Read(requestBytes)
-		r := new(Request)
+		r := new(RequestHeaderV2)
 		// r.UnmarshalBinary(requestBytes)
 
-		enc.Decode(requestBytes, r)
+		bytesRead, err := enc.Decode(requestBytes, r)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
 		resp := Message{MessageSize: 0, Header: &ResponseHeaderV0{r.CorrelationId}}
 
@@ -73,9 +81,19 @@ func handleConnection(conn net.Conn) {
 			// fmt.Println("Sending APIVersions response")
 			resp.Body = &rbody
 		case API_KEY_FETCH:
+			reqBody := new(FetchRequestV16)
+			enc.Decode(requestBytes[bytesRead:], reqBody)
+			fmt.Printf("Topics: %d\n", len(reqBody.Topics))
+
 			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
+
 			var rbody FetchResponseV16Body
-			rbody.Responses = make([]TopicResponses, 0)
+			rbody.Responses = make([]TopicResponses, 1)
+			rbody.Responses[0].Partitions = make([]FetchResponseV16Partition, 1)
+			rbody.Responses[0].Partitions[0].PartitionIndex = 0
+			rbody.Responses[0].Partitions[0].ErrorCode = UNKNOWN_TOPIC_ID
+			rbody.Responses[0].TopicId = reqBody.Topics[0].TopicId
+
 			resp.Body = &rbody
 		}
 		encBytes, err := enc.Encode(resp)
