@@ -336,13 +336,13 @@ func (p FetchResponseV16Partition) AppendBinary(in []byte) ([]byte, error) {
 
 type Transaction struct {
 	ProducerId    int64
-	firstOffsetId int64
+	FirstOffsetId int64
 	TaggedFields  TaggedBuffer
 }
 
 func (t Transaction) AppendBinary(in []byte) ([]byte, error) {
 	in = binary.BigEndian.AppendUint64(in, uint64(t.ProducerId))
-	in = binary.BigEndian.AppendUint64(in, uint64(t.firstOffsetId))
+	in = binary.BigEndian.AppendUint64(in, uint64(t.FirstOffsetId))
 	in, err := t.TaggedFields.AppendBinary(in)
 	if err != nil {
 		return nil, err
