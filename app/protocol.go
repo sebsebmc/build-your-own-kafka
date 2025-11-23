@@ -133,16 +133,16 @@ func (r *ResponseBody) UnmarshalBinary(in []byte) error {
 }
 
 type Request struct {
-	request_api_key     int16
-	request_api_version int16
-	correlation_id      int32
-	client_id           string
+	RequestApiKey     int16
+	RequestApiVersion int16
+	CorrelationId     int32
+	ClientId          string `string:"compact"`
 }
 
 func (r *Request) UnmarshalBinary(in []byte) error {
-	r.request_api_key = int16(binary.BigEndian.Uint16(in))
-	r.request_api_version = int16(binary.BigEndian.Uint16(in[2:]))
-	r.correlation_id = int32(binary.BigEndian.Uint32(in[4:]))
+	r.RequestApiKey = int16(binary.BigEndian.Uint16(in))
+	r.RequestApiVersion = int16(binary.BigEndian.Uint16(in[2:]))
+	r.CorrelationId = int32(binary.BigEndian.Uint32(in[4:]))
 
 	return nil
 }
@@ -229,7 +229,7 @@ func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
 
 type TopicResponses struct {
 	topic_id      uuid.UUID
-	partitions    []Partition
+	partitions    []FetchResponseV16Partition
 	tagged_fields TaggedBuffer
 }
 
@@ -254,33 +254,67 @@ func (tr TopicResponses) AppendBinary(in []byte) ([]byte, error) {
 	return in, nil
 }
 
-type Partition struct {
-	partition_index        int32
-	error_code             int16
-	high_watermark         int64
-	last_stable_offset     int64
-	log_start_offset       int64
-	aborted_transactions   []Transaction
-	preferred_read_replica int32
-	records                []Record
-	tagged_fields          TaggedBuffer
+type FetchResponseV16Partition struct {
+	PartitionIndex       int32
+	ErrorCode            int16
+	HighWatermark        int64
+	LastStableOffset     int64
+	LogStartOffset       int64
+	AbortedTransactions  []Transaction
+	PreferredReadReplica int32
+	Records              []Record
+	TaggedFields         TaggedBuffer
 }
 
-func (p Partition) AppendBinary(in []byte) ([]byte, error) {
+type FetchRequestV16 struct {
+	MaxWaitMs       int32
+	MinBytes        int32
+	MaxBytes        int32
+	IsolationLevel  int8
+	SessionId       int32
+	SessionEpoch    int32
+	Topics          []TopicRequest
+	ForgottenTopics []ForgottenTopic
+	RackId          string
+}
+
+type TopicRequest struct {
+	TopicId      uuid.UUID
+	Partitions   []FetchRequestV16Partition
+	TaggedFields TaggedBuffer
+}
+
+type FetchRequestV16Partition struct {
+	Partition          int32
+	CurrentLeaderEpoch int32
+	FetchOffset        int64
+	LastFetchedEpoch   int32
+	LogStartOffset     int64
+	PartitionMaxBytes  int32
+	TaggedFields       TaggedBuffer
+}
+
+type ForgottenTopic struct {
+	TopicId      uuid.UUID
+	Partitions   []int32
+	TaggedFields []TaggedBuffer
+}
+
+func (p FetchResponseV16Partition) AppendBinary(in []byte) ([]byte, error) {
 	var err error
-	in = binary.BigEndian.AppendUint32(in, uint32(p.partition_index))
-	in = binary.BigEndian.AppendUint64(in, uint64(p.log_start_offset))
-	in = binary.BigEndian.AppendUint64(in, uint64(p.last_stable_offset))
-	in = binary.BigEndian.AppendUint64(in, uint64(p.high_watermark))
-	in = binary.BigEndian.AppendUint16(in, uint16(p.error_code))
-	for _, v := range p.aborted_transactions {
+	in = binary.BigEndian.AppendUint32(in, uint32(p.PartitionIndex))
+	in = binary.BigEndian.AppendUint64(in, uint64(p.LogStartOffset))
+	in = binary.BigEndian.AppendUint64(in, uint64(p.LastStableOffset))
+	in = binary.BigEndian.AppendUint64(in, uint64(p.HighWatermark))
+	in = binary.BigEndian.AppendUint16(in, uint16(p.ErrorCode))
+	for _, v := range p.AbortedTransactions {
 		in, err = v.AppendBinary(in)
 		if err != nil {
 			return nil, err
 		}
 	}
-	in = binary.BigEndian.AppendUint32(in, uint32(p.preferred_read_replica))
-	for _, v := range p.records {
+	in = binary.BigEndian.AppendUint32(in, uint32(p.PreferredReadReplica))
+	for _, v := range p.Records {
 		in, err = v.AppendBinary(in)
 		if err != nil {
 			return nil, err

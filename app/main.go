@@ -43,12 +43,14 @@ func handleConnection(conn net.Conn) {
 		requestBytes := append(make([]byte, binary.BigEndian.Uint32(msg_size)+4), msg_size...)
 		conn.Read(requestBytes)
 		r := new(Request)
-		r.UnmarshalBinary(requestBytes)
-		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
-		resp := Message{MessageSize: 0, Header: &ResponseHeaderV0{r.correlation_id}}
+		// r.UnmarshalBinary(requestBytes)
 
-		support_info, ok := SUPPORTED_APIS[r.request_api_key]
-		if !ok || (r.request_api_version > support_info.MaxVersion || r.request_api_version < support_info.MinVersion) {
+		enc.Decode(requestBytes, r)
+		// fmt.Printf("Requested API %d with version %d\n", r.request_api_key, r.request_api_version)
+		resp := Message{MessageSize: 0, Header: &ResponseHeaderV0{r.CorrelationId}}
+
+		support_info, ok := SUPPORTED_APIS[r.RequestApiKey]
+		if !ok || (r.RequestApiVersion > support_info.MaxVersion || r.RequestApiVersion < support_info.MinVersion) {
 			var rbody ResponseBody
 			rbody.Body = make([]byte, 0)
 			rbody.Body = binary.BigEndian.AppendUint16(rbody.Body, UNSUPPORTED_VERSION)
@@ -64,14 +66,14 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		switch r.request_api_key {
+		switch r.RequestApiKey {
 		case API_KEY_APIVERSIONS:
 			var rbody ApiVersionsV4ResponseBody
 			rbody.ApiKeys = slices.Collect(maps.Values(SUPPORTED_APIS))
 			// fmt.Println("Sending APIVersions response")
 			resp.Body = &rbody
 		case API_KEY_FETCH:
-			resp.Header = &ResponseHeaderV1{CorrelationId: r.correlation_id}
+			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
 			var rbody FetchResponseV16Body
 			rbody.Responses = make([]TopicResponses, 0)
 			resp.Body = &rbody

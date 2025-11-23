@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+
+	"github.com/google/uuid"
 )
 
 type Encoder struct {
@@ -76,4 +78,106 @@ func (e Encoder) encodeInner(value interface{}) ([]byte, error) {
 		}
 	}
 	return out, nil
+}
+
+func (e Encoder) Decode(in []byte, val any) error {
+	vt := reflect.TypeOf(val)
+	if vt.Kind() != reflect.Pointer {
+		return fmt.Errorf("decode requires a pointer to decode into")
+	}
+
+	value := reflect.ValueOf(val)
+	_, err := e.decodeInner(in, value)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// decodeInner decodes into a single value and returns the number of bytes consumed
+// from in.
+func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
+	innerType := value.Type()
+
+	consumed := 0
+	switch innerType.Kind() {
+	case reflect.Int16:
+		value.Set(reflect.ValueOf(int16(binary.BigEndian.Uint16(in[consumed : consumed+2]))))
+		consumed += 2
+	case reflect.Int32:
+		value.Set(reflect.ValueOf(int32(binary.BigEndian.Uint32(in[consumed : consumed+4]))))
+		consumed += 4
+	case reflect.Int64:
+		value.Set(reflect.ValueOf(int64(binary.BigEndian.Uint32(in[consumed : consumed+8]))))
+		consumed += 8
+	case reflect.Struct:
+		// TODO: look for UnmarshalBinary? We don't know how many bytes we read though
+		if innerType == reflect.TypeFor[uuid.UUID]() {
+			var uuid uuid.UUID
+			err := uuid.UnmarshalBinary(in[consumed : consumed+16])
+			if err != nil {
+				return consumed, err
+			}
+			value.Set(reflect.ValueOf(uuid))
+		}
+		read, err := e.decodeFields(in[consumed:], value)
+		if err != nil {
+			return consumed + read, err
+		}
+		consumed += read
+	case reflect.Interface, reflect.Pointer:
+		innerVal := value.Elem()
+		read, err := e.decodeInner(in[consumed:], innerVal)
+		if err != nil {
+			return consumed + read, err
+		}
+		consumed += read
+	case reflect.String:
+		value.SetString(string(in))
+		return len(in), nil
+	}
+	return consumed, nil
+}
+
+func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
+	fields := reflect.VisibleFields(value.Type())
+
+	consumed := 0
+	for _, v := range fields {
+		fieldVal := value.FieldByIndex(v.Index)
+		switch v.Type.Kind() {
+		case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
+			read, err := e.decodeInner(in[consumed:], fieldVal)
+			if err != nil {
+				return consumed, err
+			}
+			consumed += read
+		case reflect.String:
+			tag := v.Tag.Get("string")
+			if tag == "" || tag == "compact" {
+				length, read := binary.Uvarint(in[consumed:])
+				if read <= 0 {
+					return consumed, fmt.Errorf("unable to read compact string length, bad varint")
+				}
+				consumed += read
+				read, err := e.decodeInner(in[consumed:consumed+int(length)], fieldVal)
+				if err != nil {
+					return consumed, err
+				}
+				consumed += read
+			}
+		case reflect.Interface:
+			innerVal := fieldVal.Elem()
+			read, err := e.decodeInner(in[consumed:], innerVal)
+			if err != nil {
+				return consumed, err
+			}
+			consumed += read
+		default:
+			fmt.Printf("Unable to decode %s %s\n", v.Type.String(), v.Name)
+		}
+
+	}
+	return consumed, nil
 }
