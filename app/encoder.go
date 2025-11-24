@@ -55,7 +55,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 				continue
 			} else if val.Type().Elem().Kind() == reflect.Uint8 {
 				innerBytes := val.Bytes()
-				out = binary.AppendUvarint(out, uint64(len(innerBytes)))
+				out = binary.AppendUvarint(out, uint64(len(innerBytes)+1))
 				out = append(out, innerBytes...)
 				continue
 			}
