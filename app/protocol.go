@@ -351,6 +351,7 @@ func (t Transaction) AppendBinary(in []byte) ([]byte, error) {
 }
 
 type Record struct {
+	// TODO: Try specifying the size as a uvarint
 	Opaque []byte
 }
 
