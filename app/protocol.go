@@ -355,5 +355,5 @@ type Record struct {
 }
 
 func (r Record) AppendBinary(in []byte) ([]byte, error) {
-	return append(in, r.opaque...), nil
+	return append(in, r.Opaque...), nil
 }
