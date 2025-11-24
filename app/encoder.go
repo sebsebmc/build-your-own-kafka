@@ -35,16 +35,16 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		if val.Kind() == reflect.Interface {
 			val = val.Elem().Elem()
 		}
-		// fmt.Printf("encoding %s type %s\n", field.Name, field.Type.Name())
+		fmt.Printf("encoding %s type %s ", field.Name, field.Type.Name())
 		switch val.Kind() {
 		case reflect.Int16:
-			// fmt.Println(val.Int())
+			fmt.Println(val.Int())
 			out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
 		case reflect.Int32:
-			// fmt.Println(val.Int())
+			fmt.Println(val.Int())
 			out = binary.BigEndian.AppendUint32(out, uint32(val.Int()))
 		case reflect.Int64:
-			// fmt.Println(val.Int())
+			fmt.Println(val.Int())
 			out = binary.BigEndian.AppendUint64(out, uint64(val.Int()))
 		case reflect.Array, reflect.Slice:
 			// Special case []byte
@@ -63,7 +63,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 
 			// TODO: We may have an array of primtives or structs... We can only recurse on structs
 			if val.Type().Elem().Kind() != reflect.Struct {
-				// fmt.Printf("Skipping array of non-struct types: %s\n", val.Type().String())
+				fmt.Printf("Skipping array of non-struct types: %s\n", val.Type().String())
 				continue
 			}
 			for i := 0; i < val.Len(); i++ {
@@ -75,6 +75,10 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			}
 			// recurse
 		case reflect.Struct:
+			if val.Type() == reflect.TypeFor[TaggedBuffer]() {
+				out = append(out, 0)
+				continue
+			}
 			out2, err := e.Encode(val.Interface())
 			if err != nil {
 				return nil, err
