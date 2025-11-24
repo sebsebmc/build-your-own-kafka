@@ -351,7 +351,7 @@ func (t Transaction) AppendBinary(in []byte) ([]byte, error) {
 }
 
 type Record struct {
-	opaque []byte
+	Opaque []byte
 }
 
 func (r Record) AppendBinary(in []byte) ([]byte, error) {
