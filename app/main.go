@@ -84,9 +84,9 @@ func handleConnection(conn net.Conn) {
 
 		support_info, ok := SUPPORTED_APIS[r.RequestApiKey]
 		if !ok || (r.RequestApiVersion > support_info.MaxVersion || r.RequestApiVersion < support_info.MinVersion) {
-			var rbody ResponseBody
-			rbody.Body = make([]byte, 0)
-			rbody.Body = binary.BigEndian.AppendUint16(rbody.Body, UNSUPPORTED_VERSION)
+			var rbody ApiVersionsV4ResponseBody
+
+			rbody.ErrorCode = UNSUPPORTED_VERSION
 			resp.Body = &rbody
 			// respBytes, _ := resp.MarshalBinary()
 			encBytes, err := enc.Encode(resp)

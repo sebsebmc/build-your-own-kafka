@@ -119,6 +119,12 @@ func (r *ResponseHeaderV1) UnmarshalBinary(in []byte) error {
 	return nil
 }
 
+type ApiVersionsRequestV4 struct {
+	ClientSoftwareName    string `string:"compact"`
+	ClientSoftwareVersion string `string:"compact"`
+	TaggedFields          TaggedBuffer
+}
+
 type ResponseBody struct {
 	Body []byte
 }
