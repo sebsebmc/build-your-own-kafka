@@ -271,7 +271,7 @@ type FetchResponseV16Partition struct {
 	LogStartOffset       int64
 	AbortedTransactions  []Transaction
 	PreferredReadReplica int32
-	Records              []Record
+	Records              Record
 	TaggedFields         TaggedBuffer
 }
 
@@ -324,12 +324,8 @@ func (p FetchResponseV16Partition) AppendBinary(in []byte) ([]byte, error) {
 		}
 	}
 	in = binary.BigEndian.AppendUint32(in, uint32(p.PreferredReadReplica))
-	for _, v := range p.Records {
-		in, err = v.AppendBinary(in)
-		if err != nil {
-			return nil, err
-		}
-	}
+	in = binary.AppendUvarint(in, uint64(len(p.Records.Opaque)+1))
+	in = append(in, p.Records.Opaque...)
 
 	return in, nil
 }

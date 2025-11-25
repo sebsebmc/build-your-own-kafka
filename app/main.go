@@ -101,7 +101,7 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 		fmt.Println(hex.Dump(encBytes))
-		respBytes, _ := resp.MarshalBinary()
-		conn.Write(respBytes)
+		// respBytes, _ := resp.MarshalBinary()
+		conn.Write(encBytes)
 	}
 }

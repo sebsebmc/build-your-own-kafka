@@ -17,7 +17,7 @@ func (e Encoder) Encode(value any) ([]byte, error) {
 		return nil, err
 	}
 	// The first bits of a message are the message length, less the message length
-	binary.BigEndian.AppendUint32(out, uint32(len(out)-4))
+	binary.BigEndian.PutUint32(out, uint32(len(out)-4))
 	return out, nil
 }
 
@@ -67,7 +67,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 				continue
 			}
 			for i := 0; i < val.Len(); i++ {
-				out2, err := e.Encode(val.Index(i).Interface())
+				out2, err := e.encodeInner(val.Index(i).Interface())
 				if err != nil {
 					return nil, err
 				}
@@ -79,7 +79,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 				out = append(out, 0)
 				continue
 			}
-			out2, err := e.Encode(val.Interface())
+			out2, err := e.encodeInner(val.Interface())
 			if err != nil {
 				return nil, err
 			}
