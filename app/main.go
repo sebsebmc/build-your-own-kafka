@@ -11,6 +11,8 @@ import (
 	"os"
 	"slices"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -93,7 +95,6 @@ func handleConnection(conn net.Conn) {
 			if err != nil {
 				return
 			}
-			// fmt.Println(hex.Dump(encBytes))
 			conn.Write(encBytes)
 			// continue
 			return
@@ -105,6 +106,24 @@ func handleConnection(conn net.Conn) {
 			rbody.ApiKeys = slices.Collect(maps.Values(SUPPORTED_APIS))
 			// fmt.Println("Sending APIVersions response")
 			resp.Body = &rbody
+		case API_KEY_DESCRIBETOPICPARTIONS:
+			reqBody := new(DescribeTopicPartitionsRequestV0)
+			enc.Decode(requestBytes[bytesRead:], reqBody)
+			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
+			rbody := new(DescribeTopicPartitionsResponseV0)
+			rbody.NextCursor = -1
+			rbody.Topics = make([]DescribeTopics, 1)
+			slog.Debug("requested topic", "name", reqBody.Topics[0].Name)
+			dt := DescribeTopics{
+				ErrorCode:   UNKNOWN_TOPIC_OR_PARTITION,
+				TopicName:   reqBody.Topics[0].Name,
+				TopicId:     uuid.Nil,
+				IsInteranal: false,
+				Partitions:  []DescribePartitions{},
+			}
+			rbody.Topics[0] = dt
+			resp.Body = rbody
+
 		case API_KEY_FETCH:
 			reqBody := new(FetchRequestV16)
 			enc.Decode(requestBytes[bytesRead:], reqBody)
@@ -118,8 +137,11 @@ func handleConnection(conn net.Conn) {
 		}
 		encBytes, err := enc.Encode(resp)
 		if err != nil {
+			slog.Error("Unable to encode response", "error", err)
 			return
 		}
+
+		// fmt.Println(hex.Dump(encBytes))
 
 		conn.Write(encBytes)
 	}

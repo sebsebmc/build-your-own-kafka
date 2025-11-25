@@ -38,6 +38,9 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		}
 		slog.Debug("encoding", "field", field.Name, "type", field.Type.Name())
 		switch val.Kind() {
+		case reflect.Int8:
+			slog.Debug("int8", "val", val.Int())
+			out = append(out, byte(val.Int()))
 		case reflect.Int16:
 			slog.Debug("int16", "val", val.Int())
 			out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
@@ -85,6 +88,17 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 				return nil, err
 			}
 			out = append(out, out2...)
+		case reflect.String:
+			length := val.Len()
+			out = binary.AppendUvarint(out, uint64(length+1))
+			out = append(out, []byte(val.String())...)
+		case reflect.Bool:
+			if val.Bool() {
+				out = append(out, 1)
+			} else {
+				out = append(out, 0)
+			}
+
 		default:
 			return nil, fmt.Errorf("unable to encode struct %s field %s of type %s", vt.Name(), field.Name, field.Type.Name())
 		}
@@ -168,7 +182,7 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 	consumed := 0
 	for _, v := range fields {
 		fieldVal := value.FieldByIndex(v.Index)
-		slog.Group(v.Name)
+		slog.Debug("field", "name", v.Name)
 		switch v.Type.Kind() {
 		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			read, err := e.decodeInner(in[consumed:], fieldVal)
@@ -183,7 +197,9 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 				if read <= 0 {
 					return consumed, fmt.Errorf("unable to read compact string length, bad varint")
 				}
+				length -= 1
 				consumed += read
+				slog.Debug("string", "type", "compact", "length", length)
 				read, err := e.decodeInner(in[consumed:consumed+int(length)], fieldVal)
 				if err != nil {
 					return consumed, err
@@ -231,6 +247,11 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 			if fieldVal.Type() == reflect.TypeFor[TaggedBuffer]() {
 				consumed += 1 // Assuming empty TaggedBuffers for now
 				fieldVal.Set(reflect.ValueOf(TaggedBuffer{}))
+				continue
+			}
+
+			if v.Tag.Get("nullable") == "true" && in[consumed] == 0xff {
+				// zero value?
 				continue
 			}
 			read, err := e.decodeInner(in[consumed:], fieldVal)

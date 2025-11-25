@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+const UNKNOWN_TOPIC_OR_PARTITION = 3
 const UNSUPPORTED_VERSION = 35
 const UNKNOWN_TOPIC_ID = 100
 
@@ -364,19 +365,45 @@ func (r Record) AppendBinary(in []byte) ([]byte, error) {
 type DescribeTopicPartitionsRequestV0 struct {
 	Topics                 []DescribeTopicNames
 	ResponsePartitionLimit int32
-	Cursor                 DescribeTopicCursor
+	Cursor                 DescribeTopicCursor `nullable:"true"`
 	TaggedFields           TaggedBuffer
 }
 
 type DescribeTopicNames struct {
-	Name string `string:"compact"`
+	Name         string `string:"compact"`
+	TaggedFields TaggedBuffer
 }
 
 type DescribeTopicCursor struct {
 	TopicName      string `string:"compact"`
 	PartitionIndex int32
+	TaggedFields   TaggedBuffer
 }
 
 type DescribeTopicPartitionsResponseV0 struct {
 	ThrottleTimeMs int32
+	Topics         []DescribeTopics
+	NextCursor     int8
+	TaggedFields   TaggedBuffer
+}
+
+func (dtpr DescribeTopicPartitionsResponseV0) AppendBinary(in []byte) ([]byte, error) {
+	return in, nil
+}
+
+func (dtpr *DescribeTopicPartitionsResponseV0) UnmarshalBinary(in []byte) error {
+	return nil
+}
+
+type DescribeTopics struct {
+	ErrorCode     int16
+	TopicName     string
+	TopicId       uuid.UUID
+	IsInteranal   bool
+	Partitions    []DescribePartitions
+	TopicAuthzOps int32
+	TaggedFields  TaggedBuffer
+}
+
+type DescribePartitions struct {
 }
