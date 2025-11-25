@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"github.com/google/uuid"
@@ -35,16 +36,16 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		if val.Kind() == reflect.Interface {
 			val = val.Elem().Elem()
 		}
-		fmt.Printf("encoding %s type %s ", field.Name, field.Type.Name())
+		slog.Debug("encoding", "field", field.Name, "type", field.Type.Name())
 		switch val.Kind() {
 		case reflect.Int16:
-			fmt.Println(val.Int())
+			slog.Debug("int16", "val", val.Int())
 			out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
 		case reflect.Int32:
-			fmt.Println(val.Int())
+			slog.Debug("int32", "val", val.Int())
 			out = binary.BigEndian.AppendUint32(out, uint32(val.Int()))
 		case reflect.Int64:
-			fmt.Println(val.Int())
+			slog.Debug("int64", "val", val.Int())
 			out = binary.BigEndian.AppendUint64(out, uint64(val.Int()))
 		case reflect.Array, reflect.Slice:
 			// Special case []byte
@@ -63,7 +64,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 
 			// TODO: We may have an array of primtives or structs... We can only recurse on structs
 			if val.Type().Elem().Kind() != reflect.Struct {
-				fmt.Printf("Skipping array of non-struct types: %s\n", val.Type().String())
+				slog.Warn("Skipping array of non-struct types", "name", val.Type().String())
 				continue
 			}
 			for i := 0; i < val.Len(); i++ {
@@ -102,7 +103,6 @@ func (e Encoder) Decode(in []byte, val any) (int, error) {
 	if err != nil {
 		return read, err
 	}
-	fmt.Println()
 	return read, nil
 }
 
@@ -114,19 +114,19 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 	consumed := 0
 	switch innerType.Kind() {
 	case reflect.Int8:
-		fmt.Print(" ", int8(in[consumed]), "\n")
+		slog.Debug("int8", "val", int8(in[consumed]))
 		value.Set(reflect.ValueOf(int8(in[consumed])))
 		consumed += 1
 	case reflect.Int16:
-		fmt.Print(" ", int16(binary.BigEndian.Uint16(in[consumed:consumed+2])), "\n")
+		slog.Debug("int16", "val", int16(binary.BigEndian.Uint16(in[consumed:consumed+2])))
 		value.Set(reflect.ValueOf(int16(binary.BigEndian.Uint16(in[consumed : consumed+2]))))
 		consumed += 2
 	case reflect.Int32:
-		fmt.Print(" ", int32(binary.BigEndian.Uint32(in[consumed:consumed+4])), "\n")
+		slog.Debug("int32", "val", int32(binary.BigEndian.Uint32(in[consumed:consumed+4])))
 		value.Set(reflect.ValueOf(int32(binary.BigEndian.Uint32(in[consumed : consumed+4]))))
 		consumed += 4
 	case reflect.Int64:
-		fmt.Print(" ", int64(binary.BigEndian.Uint32(in[consumed:consumed+8])), "\n")
+		slog.Debug("int64", "val", int64(binary.BigEndian.Uint32(in[consumed:consumed+8])))
 		value.Set(reflect.ValueOf(int64(binary.BigEndian.Uint32(in[consumed : consumed+8]))))
 		consumed += 8
 	case reflect.Struct:
@@ -143,7 +143,7 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 			if err != nil {
 				return consumed, err
 			}
-			fmt.Print(" ", uuid, "\n")
+			slog.Debug("uuid.UUID", "val", uuid)
 			value.Set(reflect.ValueOf(uuid))
 			consumed += 16
 		}
@@ -155,7 +155,7 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 		}
 		consumed += read
 	case reflect.String:
-		fmt.Println(" ", string(in))
+		slog.Debug("string", "val", string(in))
 		value.SetString(string(in))
 		return len(in), nil
 	}
@@ -168,7 +168,7 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 	consumed := 0
 	for _, v := range fields {
 		fieldVal := value.FieldByIndex(v.Index)
-		fmt.Print(v.Name)
+		slog.Group(v.Name)
 		switch v.Type.Kind() {
 		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			read, err := e.decodeInner(in[consumed:], fieldVal)
@@ -210,7 +210,7 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 			consumed += read
 		case reflect.Slice:
 			length, read := binary.Uvarint(in[consumed:])
-			fmt.Printf(" %d %d\n", length-1, int64(length-1))
+			slog.Debug("slice length", "val", length-1, "val int64", int64(length-1))
 			if read <= 0 {
 				return consumed, fmt.Errorf("unable to read compact array length, bad varint")
 			}
@@ -228,7 +228,6 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 				consumed += read
 			}
 		case reflect.Struct:
-			fmt.Print(": \n")
 			if fieldVal.Type() == reflect.TypeFor[TaggedBuffer]() {
 				consumed += 1 // Assuming empty TaggedBuffers for now
 				fieldVal.Set(reflect.ValueOf(TaggedBuffer{}))
@@ -248,7 +247,7 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 				consumed += read
 			}
 		default:
-			fmt.Printf("Unable to decode %s %s\n", v.Type.String(), v.Name)
+			slog.Warn("Unable to decode", v.Type.String(), v.Name)
 		}
 
 	}

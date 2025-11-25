@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
+	"log/slog"
 	"maps"
 	"net"
 	"os"
@@ -14,6 +16,30 @@ import (
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
+
+	slog.SetLogLoggerLevel(slog.LevelInfo)
+	if os.Getenv("BYOK") == "debug" {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+
+	if len(os.Args) == 2 {
+		// the path of the setver properties file
+		fh, err := os.Open(os.Args[1])
+		defer fh.Close()
+		if err != nil {
+			log.Fatalf("%v\n", err)
+		}
+		fc, err := io.ReadAll(fh)
+		if err != nil {
+			log.Fatalf("Unable to read: %v\n", err)
+		}
+		fmt.Print(string(fc))
+	}
+
+	// engine := Engine{}
+
+	// ctx := context.Background()
+	// context.WithValue(ctx, )
 
 	l, err := net.Listen("tcp", "0.0.0.0:9092")
 	if err != nil {
@@ -29,7 +55,6 @@ func main() {
 
 		go handleConnection(conn)
 	}
-
 }
 
 func handleConnection(conn net.Conn) {
@@ -83,25 +108,19 @@ func handleConnection(conn net.Conn) {
 		case API_KEY_FETCH:
 			reqBody := new(FetchRequestV16)
 			enc.Decode(requestBytes[bytesRead:], reqBody)
-			fmt.Printf("Topics: %d\n", len(reqBody.Topics))
+			slog.Debug("Topics", "length", len(reqBody.Topics))
 
 			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
 
-			var rbody FetchResponseV16Body
-			rbody.Responses = make([]TopicResponses, 1)
-			rbody.Responses[0].Partitions = make([]FetchResponseV16Partition, 1)
-			rbody.Responses[0].Partitions[0].PartitionIndex = 0
-			rbody.Responses[0].Partitions[0].ErrorCode = UNKNOWN_TOPIC_ID
-			rbody.Responses[0].TopicId = reqBody.Topics[0].TopicId
+			e := Engine{}
 
-			resp.Body = &rbody
+			resp.Body = e.HandleFetchV16(*reqBody)
 		}
 		encBytes, err := enc.Encode(resp)
 		if err != nil {
 			return
 		}
-		fmt.Println(hex.Dump(encBytes))
-		// respBytes, _ := resp.MarshalBinary()
+
 		conn.Write(encBytes)
 	}
 }

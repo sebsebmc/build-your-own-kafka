@@ -207,7 +207,7 @@ type FetchResponseV16Body struct {
 	ThrottleTimeMs int32
 	ErrorCode      int16
 	SessionId      int32
-	Responses      []TopicResponses
+	Responses      []TopicResponse
 	TaggedFields   TaggedBuffer
 }
 
@@ -236,13 +236,13 @@ func (fr FetchResponseV16Body) AppendBinary(in []byte) ([]byte, error) {
 	return in, nil
 }
 
-type TopicResponses struct {
+type TopicResponse struct {
 	TopicId      uuid.UUID
 	Partitions   []FetchResponseV16Partition
 	TaggedFields TaggedBuffer
 }
 
-func (tr TopicResponses) AppendBinary(in []byte) ([]byte, error) {
+func (tr TopicResponse) AppendBinary(in []byte) ([]byte, error) {
 	uuidBytes, err := tr.TopicId.MarshalBinary()
 	if err != nil {
 		return nil, err
