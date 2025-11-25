@@ -27,7 +27,7 @@ func init() {
 	SUPPORTED_APIS[API_KEY_DESCRIBETOPICPARTIONS] = ApiKeys{
 		ApiKey:     API_KEY_DESCRIBETOPICPARTIONS,
 		MinVersion: 0,
-		MaxVersion: 1,
+		MaxVersion: 0,
 	}
 	SUPPORTED_APIS[API_KEY_FETCH] = ApiKeys{
 		ApiKey:     API_KEY_FETCH,
@@ -359,4 +359,24 @@ type Record struct {
 
 func (r Record) AppendBinary(in []byte) ([]byte, error) {
 	return append(in, r.Opaque...), nil
+}
+
+type DescribeTopicPartitionsRequestV0 struct {
+	Topics                 []DescribeTopicNames
+	ResponsePartitionLimit int32
+	Cursor                 DescribeTopicCursor
+	TaggedFields           TaggedBuffer
+}
+
+type DescribeTopicNames struct {
+	Name string `string:"compact"`
+}
+
+type DescribeTopicCursor struct {
+	TopicName      string `string:"compact"`
+	PartitionIndex int32
+}
+
+type DescribeTopicPartitionsResponseV0 struct {
+	ThrottleTimeMs int32
 }
