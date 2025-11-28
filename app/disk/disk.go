@@ -168,6 +168,7 @@ func (dm *DiskManager) LoadMetadata() error {
 			switch rec := r.Value.(type) {
 			case FeatureLevelRecord:
 			case TopicRecord:
+				slog.Info("Found topic metadata", "name", rec.Name, "id", rec.TopicId)
 				dm.metadata.topics[rec.Name] = rec.TopicId
 				dm.metadata.partitions[rec.TopicId] = new(Topic)
 			case PartitionRecord:
@@ -175,6 +176,7 @@ func (dm *DiskManager) LoadMetadata() error {
 				if !ok {
 					slog.Warn("Partition for topic not yet seen")
 				}
+				slog.Info("Found topic partition metadata", "topic", topic.Name, "id", rec.TopicId, "partition", rec.PartitionId)
 				topic.Partitions = append(topic.Partitions, TopicPartition{
 					rec.PartitionId,
 					rec.TopicId,
