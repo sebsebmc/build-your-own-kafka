@@ -166,12 +166,12 @@ func (dm *DiskManager) LoadMetadata() error {
 
 		for _, r := range rb.Records {
 			switch rec := r.Value.(type) {
-			case FeatureLevelRecord:
-			case TopicRecord:
+			case *FeatureLevelRecord:
+			case *TopicRecord:
 				slog.Info("Found topic metadata", "name", rec.Name, "id", rec.TopicId)
 				dm.metadata.topics[rec.Name] = rec.TopicId
 				dm.metadata.partitions[rec.TopicId] = new(Topic)
-			case PartitionRecord:
+			case *PartitionRecord:
 				topic, ok := dm.metadata.partitions[rec.TopicId]
 				if !ok {
 					slog.Warn("Partition for topic not yet seen")

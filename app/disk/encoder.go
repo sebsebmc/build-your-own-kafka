@@ -113,12 +113,12 @@ func (e Encoder) Decode(in []byte, val any) (int, error) {
 	}
 
 	value := reflect.ValueOf(val)
-	if vt.Elem().Kind() == reflect.Interface {
-		// Pointer and Interface traversal
-		// tmp := reflect.New(value.Type())
+	// if vt.Elem().Kind() == reflect.Interface {
+	// 	// Pointer and Interface traversal
+	// 	// tmp := reflect.New(value.Type())
 
-		value = reflect.New(value.Elem().Elem().Type())
-	}
+	// 	value = reflect.New(value.Elem().Elem().Type())
+	// }
 
 	read, err := e.decodeInner(in, value)
 	if err != nil {
@@ -153,7 +153,7 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 	case reflect.Struct:
 		// TODO: look for UnmarshalBinary? We don't know how many bytes we read though
 		// For an embedded struct we need to create the inner struct and assign it
-		value.Set(reflect.Zero(value.Type()))
+		// value.Set(reflect.Zero(value.Type()))
 		read, err := e.decodeFields(in[consumed:], value)
 
 		if err != nil {
@@ -305,9 +305,9 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 				continue
 			}
 			// For an embedded struct we need to create the inner struct and assign it
-			if v.Anonymous {
-				fieldVal.Set(reflect.Zero(v.Type))
-			}
+			// if v.Anonymous {
+			// 	fieldVal.Set(reflect.Zero(v.Type))
+			// }
 			read, err := e.decodeInner(in[consumed:], fieldVal)
 			if err != nil {
 				return consumed, err
@@ -342,13 +342,13 @@ func (e Encoder) resolveFramedData(in []byte) (FramedValue, int, error) {
 	var out FramedValue
 	switch fd.Type {
 	case KindFeatureLevelRecord:
-		out = FeatureLevelRecord{}
+		out = new(FeatureLevelRecord)
 	case KindTopicRecord:
-		out = TopicRecord{}
+		out = new(TopicRecord)
 	case KindPartitionRecord:
-		out = PartitionRecord{}
+		out = new(PartitionRecord)
 	}
-	read, err = e.Decode(in, &out)
+	read, err = e.decodeInner(in, reflect.ValueOf(out))
 	if err != nil {
 		return nil, 0, err
 	}
