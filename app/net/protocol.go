@@ -1,4 +1,4 @@
-package main
+package net
 
 import (
 	"encoding"
@@ -399,11 +399,21 @@ type DescribeTopics struct {
 	ErrorCode     int16
 	TopicName     string
 	TopicId       uuid.UUID
-	IsInteranal   bool
+	IsInternal    bool
 	Partitions    []DescribePartitions
 	TopicAuthzOps int32
 	TaggedFields  TaggedBuffer
 }
 
 type DescribePartitions struct {
+	ErrorCode              int16
+	PartitionIndex         int32
+	LeaderId               int32
+	LeaderEpoch            int32
+	ReplicaNodes           []int32
+	ISRNodes               []int32
+	EligibleLeaderReplicas []int32
+	LastKnownELR           []int32
+	OfflineReplicas        []int32
+	TaggedFields           TaggedBuffer
 }

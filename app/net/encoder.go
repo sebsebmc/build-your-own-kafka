@@ -1,4 +1,4 @@
-package main
+package net
 
 import (
 	"encoding/binary"
@@ -140,8 +140,8 @@ func (e Encoder) decodeInner(in []byte, value reflect.Value) (int, error) {
 		value.Set(reflect.ValueOf(int32(binary.BigEndian.Uint32(in[consumed : consumed+4]))))
 		consumed += 4
 	case reflect.Int64:
-		slog.Debug("int64", "val", int64(binary.BigEndian.Uint32(in[consumed:consumed+8])))
-		value.Set(reflect.ValueOf(int64(binary.BigEndian.Uint32(in[consumed : consumed+8]))))
+		slog.Debug("int64", "val", int64(binary.BigEndian.Uint64(in[consumed:consumed+8])))
+		value.Set(reflect.ValueOf(int64(binary.BigEndian.Uint64(in[consumed : consumed+8]))))
 		consumed += 8
 	case reflect.Struct:
 		// TODO: look for UnmarshalBinary? We don't know how many bytes we read though
@@ -185,6 +185,13 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 		slog.Debug("field", "name", v.Name)
 		switch v.Type.Kind() {
 		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if v.Tag.Get("binary") == "varint" {
+				val, read := binary.Varint(in[consumed:])
+				consumed += read
+				slog.Debug("int", "val", val)
+				fieldVal.SetInt(val)
+				continue
+			}
 			read, err := e.decodeInner(in[consumed:], fieldVal)
 			if err != nil {
 				return consumed, err
@@ -225,18 +232,27 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 			}
 			consumed += read
 		case reflect.Slice:
-			length, read := binary.Uvarint(in[consumed:])
-			slog.Debug("slice length", "val", length-1, "val int64", int64(length-1))
-			if read <= 0 {
-				return consumed, fmt.Errorf("unable to read compact array length, bad varint")
+			ltag := v.Tag.Get("length")
+			length, read := 0, 0
+			if ltag != "" {
+				lenField := value.FieldByName(ltag)
+				length = int(lenField.Int())
+			} else {
+				sliceLength, uvarLen := binary.Uvarint(in[consumed:])
+				slog.Debug("slice", "length", sliceLength-1)
+				read = uvarLen
+				length = int(sliceLength - 1)
+				if read <= 0 {
+					return consumed, fmt.Errorf("unable to read compact array length, bad varint")
+				}
+				consumed += read
 			}
-			consumed += read
-			if length == 0 {
+			if length <= 0 {
 				continue
 			}
-			sliceVal := reflect.MakeSlice(v.Type, int(length-1), int(length-1))
+			sliceVal := reflect.MakeSlice(v.Type, length, length)
 			fieldVal.Set(sliceVal)
-			for i := 0; i < int(length-1); i++ {
+			for i := 0; i < length; i++ {
 				read, err := e.decodeInner(in[consumed:], sliceVal.Index(i))
 				if err != nil {
 					return consumed, err
