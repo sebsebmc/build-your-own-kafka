@@ -55,13 +55,18 @@ func (e *Engine) HandleDescribeTopicV0(dtr *DescribeTopicPartitionsRequestV0) []
 			}
 			topics[idx] = dt
 		} else {
+			partitions := make([]DescribePartitions, len(topic.Partitions))
+			for pidx, p := range topic.Partitions {
+				partitions[pidx] = DescribePartitions{
+					PartitionIndex: p.PartitionId,
+					ReplicaNodes:   p.Replicas,
+					ISRNodes:       p.Isr,
+				}
+			}
 			dt := DescribeTopics{
-				TopicName: t.Name,
-				TopicId:   topic.Id,
-				Partitions: []DescribePartitions{{
-					PartitionIndex: topic.Partitions[0].PartitionId,
-					ReplicaNodes:   topic.Partitions[0].Replicas,
-					ISRNodes:       topic.Partitions[0].Isr}},
+				TopicName:  t.Name,
+				TopicId:    topic.Id,
+				Partitions: partitions,
 			}
 			topics[idx] = dt
 		}
