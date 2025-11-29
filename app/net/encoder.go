@@ -87,7 +87,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			out = binary.AppendUvarint(out, uint64(1+val.Len()))
 
 			// TODO: We may have an array of primtives or structs... We can only recurse on structs
-			if val.Elem().Kind() == reflect.Struct {
+			if val.Type().Elem().Kind() == reflect.Struct {
 				for i := 0; i < val.Len(); i++ {
 					out2, err := e.encodeInner(val.Index(i).Interface())
 					if err != nil {
