@@ -66,5 +66,5 @@ func (e *Engine) HandleDescribeTopicV0(dtr *DescribeTopicPartitionsRequestV0) []
 			topics[idx] = dt
 		}
 	}
-	return nil
+	return topics
 }
