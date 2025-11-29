@@ -15,7 +15,7 @@ func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 
-	slog.SetLogLoggerLevel(slog.LevelDebug)
+	slog.SetLogLoggerLevel(slog.LevelInfo)
 	if os.Getenv("BYOK") == "debug" {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}

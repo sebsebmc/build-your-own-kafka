@@ -1,8 +1,16 @@
 package net
 
-import "github.com/google/uuid"
+import (
+	"github.com/codecrafters-io/kafka-starter-go/app/disk"
+	"github.com/google/uuid"
+)
 
 type Engine struct {
+	diskManager *disk.DiskManager
+}
+
+func NewEngine(dm *disk.DiskManager) *Engine {
+	return &Engine{diskManager: dm}
 }
 
 func (e *Engine) HandleFetchV16(fr FetchRequestV16) *FetchResponseV16Body {
@@ -31,4 +39,32 @@ func (e *Engine) HandleFetchV16(fr FetchRequestV16) *FetchResponseV16Body {
 
 func (e *Engine) hasTopic(id uuid.UUID) bool {
 	return false
+}
+
+func (e *Engine) HandleDescribeTopicV0(dtr DescribeTopicPartitionsRequestV0) []DescribeTopics {
+	topics := make([]DescribeTopics, len(dtr.Topics))
+	for idx, t := range dtr.Topics {
+		topic, err := e.diskManager.GetTopicPartitions(t.Name)
+		if err != nil {
+			dt := DescribeTopics{
+				ErrorCode:  UNKNOWN_TOPIC_OR_PARTITION,
+				TopicName:  t.Name,
+				TopicId:    uuid.Nil,
+				IsInternal: false,
+				Partitions: []DescribePartitions{},
+			}
+			topics[idx] = dt
+		} else {
+			dt := DescribeTopics{
+				TopicName: t.Name,
+				TopicId:   topic.Id,
+				Partitions: []DescribePartitions{{
+					PartitionIndex: topic.Partitions[0].PartitionId,
+					ReplicaNodes:   topic.Partitions[0].Replicas,
+					ISRNodes:       topic.Partitions[0].Isr}},
+			}
+			topics[idx] = dt
+		}
+	}
+	return nil
 }

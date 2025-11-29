@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/codecrafters-io/kafka-starter-go/app/disk"
-	"github.com/google/uuid"
 )
 
 type Server struct {
@@ -45,6 +44,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	enc := Encoder{}
+	e := NewEngine(s.dm)
 	for {
 		conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		msg_size := make([]byte, 4)
@@ -94,28 +94,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
 			rbody := new(DescribeTopicPartitionsResponseV0)
 
-			slog.Debug("requested topic", "name", reqBody.Topics[0].Name)
-			topic, err := s.dm.GetTopicPartitions(reqBody.Topics[0].Name)
 			rbody.NextCursor = -1
-			if err != nil {
-				rbody.Topics = make([]DescribeTopics, 1)
-				dt := DescribeTopics{
-					ErrorCode:  UNKNOWN_TOPIC_OR_PARTITION,
-					TopicName:  reqBody.Topics[0].Name,
-					TopicId:    uuid.Nil,
-					IsInternal: false,
-					Partitions: []DescribePartitions{},
-				}
-				rbody.Topics[0] = dt
-			} else {
-				rbody.Topics = make([]DescribeTopics, 1)
-				dt := DescribeTopics{
-					TopicName:  reqBody.Topics[0].Name,
-					TopicId:    topic.Id,
-					Partitions: []DescribePartitions{{PartitionIndex: topic.Partitions[0].PartitionId, ReplicaNodes: topic.Partitions[0].Replicas, ISRNodes: topic.Partitions[0].Isr}},
-				}
-				rbody.Topics[0] = dt
-			}
+
 			resp.Body = rbody
 
 		case API_KEY_FETCH:
@@ -124,8 +104,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 			slog.Debug("Topics", "length", len(reqBody.Topics))
 
 			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
-
-			e := Engine{}
 
 			resp.Body = e.HandleFetchV16(*reqBody)
 		}
