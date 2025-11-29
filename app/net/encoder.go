@@ -22,6 +22,27 @@ func (e Encoder) Encode(value any) ([]byte, error) {
 	return out, nil
 }
 
+func (e Encoder) encodePrimitive(value any) ([]byte, error) {
+	out := make([]byte, 0)
+	val := reflect.ValueOf(value)
+	vtyp := reflect.TypeOf(value)
+	switch vtyp.Kind() {
+	case reflect.Int8:
+		slog.Debug("int8", "val", val.Int())
+		out = append(out, byte(val.Int()))
+	case reflect.Int16:
+		slog.Debug("int16", "val", val.Int())
+		out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
+	case reflect.Int32:
+		slog.Debug("int32", "val", val.Int())
+		out = binary.BigEndian.AppendUint32(out, uint32(val.Int()))
+	case reflect.Int64:
+		slog.Debug("int64", "val", val.Int())
+		out = binary.BigEndian.AppendUint64(out, uint64(val.Int()))
+	}
+	return out, nil
+}
+
 func (e Encoder) encodeInner(value any) ([]byte, error) {
 	out := make([]byte, 0)
 	vt := reflect.TypeOf(value)
@@ -66,16 +87,22 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			out = binary.AppendUvarint(out, uint64(1+val.Len()))
 
 			// TODO: We may have an array of primtives or structs... We can only recurse on structs
-			if val.Type().Elem().Kind() != reflect.Struct {
-				slog.Warn("Skipping array of non-struct types", "name", val.Type().String())
-				continue
-			}
-			for i := 0; i < val.Len(); i++ {
-				out2, err := e.encodeInner(val.Index(i).Interface())
-				if err != nil {
-					return nil, err
+			if val.Elem().Kind() == reflect.Struct {
+				for i := 0; i < val.Len(); i++ {
+					out2, err := e.encodeInner(val.Index(i).Interface())
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, out2...)
 				}
-				out = append(out, out2...)
+			} else {
+				for i := 0; i < val.Len(); i++ {
+					out2, err := e.encodePrimitive(val.Index(i).Interface())
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, out2...)
+				}
 			}
 			// recurse
 		case reflect.Struct:

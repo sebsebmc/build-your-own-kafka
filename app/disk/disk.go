@@ -170,7 +170,7 @@ func (dm *DiskManager) LoadMetadata() error {
 			case *TopicRecord:
 				slog.Info("Found topic metadata", "name", rec.Name, "id", rec.TopicId)
 				dm.metadata.topics[rec.Name] = rec.TopicId
-				dm.metadata.partitions[rec.TopicId] = new(Topic)
+				dm.metadata.partitions[rec.TopicId] = &Topic{Name: rec.Name, Id: rec.TopicId}
 			case *PartitionRecord:
 				topic, ok := dm.metadata.partitions[rec.TopicId]
 				if !ok {
