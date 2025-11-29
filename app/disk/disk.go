@@ -217,6 +217,10 @@ func (dm DiskManager) GetTopic(name string) (*Topic, error) {
 }
 
 func (dm DiskManager) GetTopicPartitions(topicId uuid.UUID) (*Topic, error) {
+	topic, ok := dm.metadata.partitions[topicId]
+	if !ok {
+		return nil, fmt.Errorf("no partitions found for topicId %s", topicId)
+	}
 	// If we want to make this thread-safe we should return a copy
-	return dm.metadata.partitions[topicId], nil
+	return topic, nil
 }
