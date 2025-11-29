@@ -45,11 +45,14 @@ func (e *Engine) hasTopic(id uuid.UUID) bool {
 
 func (e *Engine) HandleDescribeTopicV0(dtr *DescribeTopicPartitionsRequestV0) []DescribeTopics {
 	topics := make([]DescribeTopics, len(dtr.Topics))
-	slices.SortFunc(topics, func(a, b DescribeTopics) int {
-		if a.TopicName < b.TopicName {
-			return -1
+	slices.SortFunc(dtr.Topics, func(a, b DescribeTopicNames) int {
+		if a.Name < b.Name {
+			return 1
 		}
-		return 1
+		if a.Name == b.Name {
+			return 0
+		}
+		return -1
 	})
 	for idx, t := range dtr.Topics {
 		topic, err := e.diskManager.GetTopicPartitions(t.Name)
