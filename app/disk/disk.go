@@ -195,12 +195,28 @@ func (dm *DiskManager) LoadMetadata() error {
 	return nil
 }
 
-func (dm DiskManager) GetTopicPartitions(name string) (*Topic, error) {
+// func (dm *DiskManager) LoadTopicPartitions(name string) error {
+// 	topicId, ok := dm.metadata.topics[name]
+// 	if !ok {
+// 		return
+// 	}
+// 	topic := dm.metadata.partitions[topicId]
+// 	for _, p := range topic.Partitions {
+// 		p.Directories
+// 	}
+// }
+
+func (dm DiskManager) GetTopic(name string) (*Topic, error) {
 	topicId, ok := dm.metadata.topics[name]
 	if !ok {
 		return nil, fmt.Errorf("topic %s not found", name)
 	}
 
+	// If we want to make this thread-safe we should return a copy
+	return dm.metadata.partitions[topicId], nil
+}
+
+func (dm DiskManager) GetTopicPartitions(topicId uuid.UUID) (*Topic, error) {
 	// If we want to make this thread-safe we should return a copy
 	return dm.metadata.partitions[topicId], nil
 }

@@ -22,14 +22,25 @@ func (e *Engine) HandleFetchV16(fr *FetchRequestV16) *FetchResponseV16Body {
 	resp := FetchResponseV16Body{ThrottleTimeMs: 0, ErrorCode: 0}
 	topicResps := make([]TopicResponse, len(fr.Topics))
 	for idx, v := range fr.Topics {
-		if e.hasTopic(v.TopicId) {
-		} else {
+		_, err := e.diskManager.GetTopicPartitions(v.TopicId)
+		if err != nil {
 			topicResps[idx] = TopicResponse{
 				TopicId: v.TopicId,
 				Partitions: []FetchResponseV16Partition{
 					{
 						ErrorCode:      UNKNOWN_TOPIC_ID,
 						PartitionIndex: 0,
+					},
+				},
+			}
+		} else {
+			topicResps[idx] = TopicResponse{
+				TopicId: v.TopicId,
+				Partitions: []FetchResponseV16Partition{
+					{
+						PartitionIndex: 0,
+						ErrorCode:      0,
+						Records:        Record{},
 					},
 				},
 			}
@@ -55,7 +66,7 @@ func (e *Engine) HandleDescribeTopicV0(dtr *DescribeTopicPartitionsRequestV0) []
 		return 1
 	})
 	for idx, t := range dtr.Topics {
-		topic, err := e.diskManager.GetTopicPartitions(t.Name)
+		topic, err := e.diskManager.GetTopic(t.Name)
 		if err != nil {
 			dt := DescribeTopics{
 				ErrorCode:  UNKNOWN_TOPIC_OR_PARTITION,
