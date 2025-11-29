@@ -93,9 +93,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 			enc.Decode(requestBytes[bytesRead:], reqBody)
 			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
 			rbody := new(DescribeTopicPartitionsResponseV0)
-
 			rbody.NextCursor = -1
-
+			rbody.Topics = e.HandleDescribeTopicV0(reqBody)
 			resp.Body = rbody
 
 		case API_KEY_FETCH:
@@ -105,7 +104,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
 
-			resp.Body = e.HandleFetchV16(*reqBody)
+			resp.Body = e.HandleFetchV16(reqBody)
 		}
 		encBytes, err := enc.Encode(resp)
 		if err != nil {

@@ -13,7 +13,7 @@ func NewEngine(dm *disk.DiskManager) *Engine {
 	return &Engine{diskManager: dm}
 }
 
-func (e *Engine) HandleFetchV16(fr FetchRequestV16) *FetchResponseV16Body {
+func (e *Engine) HandleFetchV16(fr *FetchRequestV16) *FetchResponseV16Body {
 	if len(fr.Topics) == 0 {
 		return &FetchResponseV16Body{ThrottleTimeMs: 0, ErrorCode: 0, Responses: make([]TopicResponse, 0)}
 	}
@@ -41,7 +41,7 @@ func (e *Engine) hasTopic(id uuid.UUID) bool {
 	return false
 }
 
-func (e *Engine) HandleDescribeTopicV0(dtr DescribeTopicPartitionsRequestV0) []DescribeTopics {
+func (e *Engine) HandleDescribeTopicV0(dtr *DescribeTopicPartitionsRequestV0) []DescribeTopics {
 	topics := make([]DescribeTopics, len(dtr.Topics))
 	for idx, t := range dtr.Topics {
 		topic, err := e.diskManager.GetTopicPartitions(t.Name)
