@@ -6,11 +6,13 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path"
 
 	"github.com/google/uuid"
 )
 
 const METADATA_LOG_PATH = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log"
+const LOGS_DIR = "/tmp/kraft-combined-logs"
 
 type RecordBatch struct {
 	BaseOffset           int64
@@ -107,6 +109,7 @@ type DiskManager struct {
 
 type Metadata struct {
 	topics     map[string]uuid.UUID
+	topicNames map[uuid.UUID]string
 	partitions map[uuid.UUID]*Topic
 }
 
@@ -133,6 +136,7 @@ func NewDiskManager() *DiskManager {
 	dm := new(DiskManager)
 
 	dm.metadata.topics = make(map[string]uuid.UUID)
+	dm.metadata.topicNames = make(map[uuid.UUID]string)
 	dm.metadata.partitions = make(map[uuid.UUID]*Topic)
 
 	return dm
@@ -170,6 +174,7 @@ func (dm *DiskManager) LoadMetadata() error {
 			case *TopicRecord:
 				slog.Info("Found topic metadata", "name", rec.Name, "id", rec.TopicId)
 				dm.metadata.topics[rec.Name] = rec.TopicId
+				dm.metadata.topicNames[rec.TopicId] = rec.Name
 				dm.metadata.partitions[rec.TopicId] = &Topic{Name: rec.Name, Id: rec.TopicId}
 			case *PartitionRecord:
 				topic, ok := dm.metadata.partitions[rec.TopicId]
@@ -223,4 +228,20 @@ func (dm DiskManager) GetTopicPartitions(topicId uuid.UUID) (*Topic, error) {
 	}
 	// If we want to make this thread-safe we should return a copy
 	return topic, nil
+}
+
+func (dm DiskManager) LoadRecords(tp TopicPartition, partition int32) ([]byte, error) {
+	topicName := dm.metadata.topicNames[tp.TopicId]
+	pdir := fmt.Sprintf("%s-%d", topicName, partition)
+	fh, err := os.Open(path.Join(LOGS_DIR, pdir, "00000000000000000000.log"))
+	if err != nil {
+		return nil, err
+	}
+
+	logBytes, err := io.ReadAll(fh)
+	if err != nil {
+		return nil, err
+	}
+
+	return logBytes, nil
 }

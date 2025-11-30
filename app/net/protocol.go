@@ -331,8 +331,8 @@ func (p FetchResponseV16Partition) AppendBinary(in []byte) ([]byte, error) {
 		}
 	}
 	in = binary.BigEndian.AppendUint32(in, uint32(p.PreferredReadReplica))
-	in = binary.AppendUvarint(in, uint64(len(p.Records.Opaque)+1))
-	in = append(in, p.Records.Opaque...)
+	in = binary.AppendUvarint(in, uint64(len(p.Records.Message)+1))
+	in = append(in, p.Records.Message...)
 
 	return in, nil
 }
@@ -355,11 +355,11 @@ func (t Transaction) AppendBinary(in []byte) ([]byte, error) {
 
 type Record struct {
 	// TODO: Try specifying the size as a uvarint
-	Opaque []byte
+	Message []byte
 }
 
 func (r Record) AppendBinary(in []byte) ([]byte, error) {
-	return append(in, r.Opaque...), nil
+	return append(in, r.Message...), nil
 }
 
 type DescribeTopicPartitionsRequestV0 struct {

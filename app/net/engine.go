@@ -22,7 +22,7 @@ func (e *Engine) HandleFetchV16(fr *FetchRequestV16) *FetchResponseV16Body {
 	resp := FetchResponseV16Body{ThrottleTimeMs: 0, ErrorCode: 0}
 	topicResps := make([]TopicResponse, len(fr.Topics))
 	for idx, v := range fr.Topics {
-		_, err := e.diskManager.GetTopicPartitions(v.TopicId)
+		topic, err := e.diskManager.GetTopicPartitions(v.TopicId)
 		if err != nil {
 			topicResps[idx] = TopicResponse{
 				TopicId: v.TopicId,
@@ -34,15 +34,19 @@ func (e *Engine) HandleFetchV16(fr *FetchRequestV16) *FetchResponseV16Body {
 				},
 			}
 		} else {
-			topicResps[idx] = TopicResponse{
-				TopicId: v.TopicId,
-				Partitions: []FetchResponseV16Partition{
-					{
-						PartitionIndex: 0,
-						ErrorCode:      0,
-						Records:        Record{},
+			for idx, p := range topic.Partitions {
+				rb, _ := e.diskManager.LoadRecords(p, int32(idx))
+
+				topicResps[idx] = TopicResponse{
+					TopicId: v.TopicId,
+					Partitions: []FetchResponseV16Partition{
+						{
+							PartitionIndex: 0,
+							ErrorCode:      0,
+							Records:        Record{Message: rb},
+						},
 					},
-				},
+				}
 			}
 		}
 	}
