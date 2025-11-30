@@ -100,6 +100,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		case API_KEY_PRODUCE:
 			reqBody := new(ProduceRequestV11)
 			enc.Decode(requestBytes[bytesRead:], reqBody)
+			resp.Header = &ResponseHeaderV1{CorrelationId: r.CorrelationId}
 			rbody := new(ProduceResponseV11)
 			rbody.Responses = []ProduceResponse{{
 				Name: reqBody.TopicData[0].Name,
