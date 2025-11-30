@@ -117,8 +117,26 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			out = append(out, out2...)
 		case reflect.String:
 			length := val.Len()
-			out = binary.AppendUvarint(out, uint64(length+1))
-			out = append(out, []byte(val.String())...)
+			switch field.Tag.Get("string") {
+			case "", "compact":
+				out = binary.AppendUvarint(out, uint64(length+1))
+				out = append(out, []byte(val.String())...)
+			case "nullable":
+				if val.Len() == 0 {
+					out = binary.BigEndian.AppendUint16(out, uint16(0xffff))
+					continue
+				}
+				out = binary.BigEndian.AppendUint16(out, uint16(length))
+				out = append(out, []byte(val.String())...)
+			case "compact_nullable":
+				if length == 0 {
+					out = binary.AppendUvarint(out, uint64(length))
+					continue
+				}
+				out = binary.AppendUvarint(out, uint64(length+1))
+				out = append(out, []byte(val.String())...)
+			}
+
 		case reflect.Bool:
 			if val.Bool() {
 				out = append(out, 1)
@@ -250,6 +268,21 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 					return consumed, err
 				}
 				consumed += read
+			} else if tag == "compact_nullable" {
+				length, read := binary.Uvarint(in[consumed:])
+				if read <= 0 {
+					return consumed, fmt.Errorf("unable to read compact string length, bad varint")
+				}
+				consumed += read
+				if length == 0 {
+					continue
+				}
+				length -= 1
+				read, err := e.decodeInner(in[consumed:consumed+int(length)], fieldVal)
+				if err != nil {
+					return consumed, err
+				}
+				consumed += read
 			}
 		case reflect.Interface:
 			innerVal := fieldVal.Elem()
@@ -275,6 +308,12 @@ func (e Encoder) decodeFields(in []byte, value reflect.Value) (int, error) {
 				consumed += read
 			}
 			if length <= 0 {
+				continue
+			}
+			// Special case []byte
+			if v.Type.Elem().Kind() == reflect.Uint8 {
+				fieldVal.Set(reflect.ValueOf(in[consumed : consumed+length]))
+				consumed += length
 				continue
 			}
 			sliceVal := reflect.MakeSlice(v.Type, length, length)

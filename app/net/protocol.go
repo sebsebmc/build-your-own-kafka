@@ -1,7 +1,6 @@
 package net
 
 import (
-	"encoding"
 	"encoding/binary"
 	"fmt"
 
@@ -62,35 +61,12 @@ func (t TaggedBuffer) AppendBinary(in []byte) ([]byte, error) {
 	return nil, fmt.Errorf("Non-Empty TaggedBuffer not implemented")
 }
 
-type RequestOrResponse interface {
-	encoding.BinaryAppender
-	encoding.BinaryUnmarshaler
-}
+type RequestOrResponse interface{}
 
 type Message struct {
 	MessageSize int32
 	Header      RequestOrResponse
 	Body        RequestOrResponse
-}
-
-func (m Message) MarshalBinary() (data []byte, err error) {
-	data = make([]byte, 4)
-	data, err = m.Header.AppendBinary(data)
-	if err != nil {
-		return nil, err
-	}
-	data, err = m.Body.AppendBinary(data)
-	if err != nil {
-		return nil, err
-	}
-	m.MessageSize = int32(len(data) - 4)
-	binary.BigEndian.PutUint32(data, uint32(m.MessageSize))
-	return data, nil
-}
-
-func (m *Message) UnmarshalBinary(in []byte) error {
-	m.MessageSize = int32(binary.BigEndian.Uint32(in))
-	return nil
 }
 
 type ResponseHeaderV0 struct {
@@ -421,5 +397,54 @@ type DescribePartitions struct {
 	EligibleLeaderReplicas []int32
 	LastKnownELR           []int32
 	OfflineReplicas        []int32
+	TaggedFields           TaggedBuffer
+}
+
+type ProduceRequestV11 struct {
+	TransactionalId string `string:"compact_nullable"`
+	Acks            int16
+	TimeoutMs       int32
+	TopicData       []ProduceTopicData
+	TaggedFields    TaggedBuffer
+}
+
+type ProduceTopicData struct {
+	Name          string `string:"compact"`
+	PartitionData []ProducePartitionData
+	TaggedFields  TaggedBuffer
+}
+
+type ProducePartitionData struct {
+	Index        int32
+	Records      []byte
+	TaggedFields TaggedBuffer
+}
+
+type ProduceResponseV11 struct {
+	Responses      []ProduceResponse
+	ThrottleTimeMs int32
+	TaggedFields   TaggedBuffer
+}
+
+type ProduceResponse struct {
+	Name               string `string:"compact"`
+	PartitionResponses []ProducePartitionResponse
+	TaggedFields       TaggedBuffer
+}
+
+type ProducePartitionResponse struct {
+	Index           int32
+	ErrorCode       int16
+	BaseOffset      int64
+	LogAppendTimeMs int64
+	LogStartOffset  int64
+	RecordErrors    []ProduceRecordError
+	ErrorMessage    string `string:"compact_nullable"`
+	TaggedFields    TaggedBuffer
+}
+
+type ProduceRecordError struct {
+	BatchIndex             int32
+	BatchIndexErrorMessage string `string:"compact_nullable"`
 	TaggedFields           TaggedBuffer
 }

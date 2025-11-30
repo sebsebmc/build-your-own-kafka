@@ -97,6 +97,24 @@ func (s *Server) handleConnection(conn net.Conn) {
 			rbody.Topics = e.HandleDescribeTopicV0(reqBody)
 			resp.Body = rbody
 
+		case API_KEY_PRODUCE:
+			reqBody := new(ProduceRequestV11)
+			enc.Decode(requestBytes[bytesRead:], reqBody)
+			rbody := new(ProduceResponseV11)
+			rbody.Responses = []ProduceResponse{{
+				Name: reqBody.TopicData[0].Name,
+				PartitionResponses: []ProducePartitionResponse{
+					{
+						ErrorCode:       UNKNOWN_TOPIC_OR_PARTITION,
+						Index:           reqBody.TopicData[0].PartitionData[0].Index,
+						BaseOffset:      -1,
+						LogAppendTimeMs: -1,
+						LogStartOffset:  -1,
+					},
+				},
+			}}
+
+			resp.Body = rbody
 		case API_KEY_FETCH:
 			reqBody := new(FetchRequestV16)
 			enc.Decode(requestBytes[bytesRead:], reqBody)
