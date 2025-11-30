@@ -12,6 +12,7 @@ const UNKNOWN_TOPIC_OR_PARTITION = 3
 const UNSUPPORTED_VERSION = 35
 const UNKNOWN_TOPIC_ID = 100
 
+const API_KEY_PRODUCE = 0
 const API_KEY_FETCH = 1
 const API_KEY_APIVERSIONS = 18
 const API_KEY_DESCRIBETOPICPARTIONS = 75
@@ -34,6 +35,11 @@ func init() {
 		ApiKey:     API_KEY_FETCH,
 		MinVersion: 0,
 		MaxVersion: 16,
+	}
+	SUPPORTED_APIS[API_KEY_PRODUCE] = ApiKeys{
+		ApiKey:     API_KEY_PRODUCE,
+		MinVersion: 3,
+		MaxVersion: 11,
 	}
 }
 
