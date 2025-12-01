@@ -19,7 +19,7 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 	for idx, t := range reqBody.TopicData {
 		dt, err := e.diskManager.GetTopic(t.Name)
 
-		slog.Debug("Handle Producev11", "topic", t.Name)
+		slog.Debug("Handle Producev11", "topic", t.Name, "partitions", len(t.PartitionData))
 
 		if err != nil || !dt.HasPartition(t.PartitionData[0].Index) {
 			rbody.Responses[idx] = ProduceResponse{
