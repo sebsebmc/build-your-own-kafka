@@ -42,7 +42,11 @@ func (s *Server) ListenAndServer() {
 
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
-
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+		}
+	}()
 	enc := Encoder{}
 	e := NewEngine(s.dm)
 	for {
