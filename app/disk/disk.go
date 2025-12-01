@@ -119,6 +119,15 @@ type Topic struct {
 	Partitions []TopicPartition
 }
 
+func (t *Topic) HasPartition(partitionIdx int32) bool {
+	for _, v := range t.Partitions {
+		if v.PartitionId == partitionIdx && t.Id == v.TopicId {
+			return true
+		}
+	}
+	return false
+}
+
 type TopicPartition struct {
 	PartitionId      int32
 	TopicId          uuid.UUID
