@@ -11,6 +11,42 @@ type Engine struct {
 	diskManager *disk.DiskManager
 }
 
+func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV11 {
+	rbody := new(ProduceResponseV11)
+	rbody.Responses = make([]ProduceResponse, len(reqBody.TopicData))
+	for idx, t := range reqBody.TopicData {
+		_, err := e.diskManager.GetTopic(t.Name)
+		if err != nil {
+			rbody.Responses[idx] = ProduceResponse{
+				Name: t.Name,
+				PartitionResponses: []ProducePartitionResponse{
+					{
+						ErrorCode:       UNKNOWN_TOPIC_OR_PARTITION,
+						Index:           reqBody.TopicData[0].PartitionData[0].Index,
+						BaseOffset:      -1,
+						LogAppendTimeMs: -1,
+						LogStartOffset:  -1,
+					},
+				},
+			}
+		} else {
+			rbody.Responses[idx] = ProduceResponse{
+				Name: t.Name,
+				PartitionResponses: []ProducePartitionResponse{
+					{
+						ErrorCode:       0,
+						Index:           t.PartitionData[0].Index, // TODO
+						BaseOffset:      0,
+						LogAppendTimeMs: -1,
+						LogStartOffset:  0,
+					},
+				},
+			}
+		}
+	}
+	return rbody
+}
+
 func NewEngine(dm *disk.DiskManager) *Engine {
 	return &Engine{diskManager: dm}
 }
