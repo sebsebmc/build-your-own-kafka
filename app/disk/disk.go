@@ -125,7 +125,9 @@ type DiskManager struct {
 
 func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte) error {
 	pdir := fmt.Sprintf("%s-%d", dt.Name, 0)
-	fh, err := os.OpenFile(path.Join(LOGS_DIR, pdir, "00000000000000000000.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	filename := path.Join(LOGS_DIR, pdir, "00000000000000000000.log")
+	fh, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	slog.Debug("Writing Records", "file", filename)
 	if err != nil {
 		return err
 	}
