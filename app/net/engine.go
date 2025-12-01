@@ -1,6 +1,7 @@
 package net
 
 import (
+	"log/slog"
 	"slices"
 
 	"github.com/sebsebmc/build-your-own-kafka/app/disk"
@@ -17,6 +18,8 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 	rbody.Responses = make([]ProduceResponse, len(reqBody.TopicData))
 	for idx, t := range reqBody.TopicData {
 		dt, err := e.diskManager.GetTopic(t.Name)
+
+		slog.Debug("Handle Producev11", "topic", t.Name)
 
 		if err != nil || !dt.HasPartition(t.PartitionData[0].Index) {
 			rbody.Responses[idx] = ProduceResponse{
