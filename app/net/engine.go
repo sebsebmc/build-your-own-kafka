@@ -24,7 +24,7 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 				PartitionResponses: []ProducePartitionResponse{
 					{
 						ErrorCode:       UNKNOWN_TOPIC_OR_PARTITION,
-						Index:           reqBody.TopicData[0].PartitionData[0].Index,
+						Index:           t.PartitionData[0].Index,
 						BaseOffset:      -1,
 						LogAppendTimeMs: -1,
 						LogStartOffset:  -1,
