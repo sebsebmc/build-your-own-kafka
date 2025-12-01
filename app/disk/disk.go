@@ -43,6 +43,22 @@ type DiskRecord struct {
 	Headers        []RecordHeader
 }
 
+type Record struct {
+	Data []byte
+}
+
+func (r Record) GetFrameVersion() int8 {
+	return -1
+}
+
+func (r Record) GetType() int8 {
+	return -1
+}
+
+func (r Record) GetVersion() int8 {
+	return -1
+}
+
 type TaggedBuffer struct {
 	TaggedFields []byte
 }
@@ -105,6 +121,30 @@ type RecordHeader struct {
 
 type DiskManager struct {
 	metadata Metadata
+}
+
+func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte) error {
+	pdir := fmt.Sprintf("%s-%d", dt.Name, 0)
+	fh, err := os.OpenFile(path.Join(LOGS_DIR, pdir, "00000000000000000000.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+	e := Encoder{}
+	bytes, err := e.Encode(&RecordBatch{BaseOffset: 0, Records: []DiskRecord{
+		{
+			Value: Record{
+				Data: record,
+			},
+			//TODO: FramedValue actually needs to become some other interface
+			//TODO: Would be good to add some tag support for encoding length
+		},
+	}})
+	if err != nil {
+		return err
+	}
+	fh.Write(bytes)
+	return nil
 }
 
 type Metadata struct {

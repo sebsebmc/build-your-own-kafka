@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/codecrafters-io/kafka-starter-go/app/disk"
-	"github.com/codecrafters-io/kafka-starter-go/app/net"
+	"github.com/sebsebmc/build-your-own-kafka/app/disk"
+	"github.com/sebsebmc/build-your-own-kafka/app/net"
 )
 
 func main() {

@@ -3,7 +3,8 @@ package net
 import (
 	"slices"
 
-	"github.com/codecrafters-io/kafka-starter-go/app/disk"
+	"github.com/sebsebmc/build-your-own-kafka/app/disk"
+
 	"github.com/google/uuid"
 )
 
@@ -31,6 +32,7 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 				},
 			}
 		} else {
+			e.diskManager.WriteRecord(dt, t.PartitionData[0].Index, t.PartitionData[0].Records)
 			rbody.Responses[idx] = ProduceResponse{
 				Name: t.Name,
 				PartitionResponses: []ProducePartitionResponse{
