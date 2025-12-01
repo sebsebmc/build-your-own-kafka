@@ -34,7 +34,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		}
 		val := rv.FieldByIndex(field.Index)
 		if val.Kind() == reflect.Interface {
-			val = val.Elem().Elem()
+			val = val.Elem()
 		}
 		slog.Debug("encoding", "field", field.Name, "type", field.Type.Name())
 		switch val.Kind() {
