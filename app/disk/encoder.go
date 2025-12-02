@@ -22,12 +22,18 @@ func (e Encoder) Encode(value any) ([]byte, error) {
 	return out, nil
 }
 
+type lengthDetails struct {
+	position int
+	encoding string
+}
+
 func (e Encoder) encodeInner(value any) ([]byte, error) {
 	out := make([]byte, 0)
 	vt := reflect.TypeOf(value)
 
 	fields := reflect.VisibleFields(vt)
 	rv := reflect.ValueOf(value)
+	lengthFields := make(map[string]lengthDetails, 0)
 	for _, field := range fields {
 		if !field.IsExported() {
 			continue
@@ -36,6 +42,25 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		if val.Kind() == reflect.Interface {
 			val = val.Elem()
 		}
+
+		// TODO: This actually requires either 2 passes over the fields or collecting all the
+		// fields in order and encoding them in reverse depth first order.
+		// Because lengths are put before their fields, we need to know which bytes to replace with
+		// the right encoded lengths, and with varints, the lengths may change.
+		// So if we do 2 passes we figure out which fields are lengths, we can record where in the bytestream
+		// to put the lengths, and after recursing we have a length that we can write in the right place
+		if lf, ok := field.Tag.Lookup("lengthFor"); ok {
+			lengthFields[lf] = lengthDetails{len(out), field.Tag.Get("binary")}
+			continue
+		}
+
+		// Where in the bytestream
+		// Length to write
+		// What encoding?
+
+		// ... But if we use a varint encoding, then later length fields in this struct would be in the wrong place?
+		// easiest solution to that is to go backwards
+
 		slog.Debug("encoding", "field", field.Name, "type", field.Type.Name())
 		switch val.Kind() {
 		case reflect.Int8:
@@ -87,6 +112,11 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
+			if details, ok := lengthFields[field.Name]; ok {
+				encLen := e.encodeLength(details, len(out2))
+				// For now we assume length fields come right before their fields
+				out = append(out, encLen...)
+			}
 			out = append(out, out2...)
 		case reflect.String:
 			length := val.Len()
@@ -103,7 +133,27 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			return nil, fmt.Errorf("unable to encode struct %s field %s of type %s", vt.Name(), field.Name, field.Type.Name())
 		}
 	}
+
+	// Go backwards so that varint encodings dont break things
+	// for i := len(lengthFields) - 1; i >= 0; i-- {
+
+	// }
 	return out, nil
+}
+
+func (e Encoder) encodeLength(details lengthDetails, len int) []byte {
+	var out []byte
+	switch details.encoding {
+	case "int32":
+		out = make([]byte, 4)
+		binary.BigEndian.PutUint32(out, uint32(len))
+	case "varint":
+		out := make([]byte, 0)
+		binary.AppendVarint(out, int64(len))
+	default:
+		slog.Error("Unknown length encoding")
+	}
+	return out
 }
 
 func (e Encoder) Decode(in []byte, val any) (int, error) {

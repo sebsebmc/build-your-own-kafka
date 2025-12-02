@@ -16,7 +16,7 @@ const LOGS_DIR = "/tmp/kraft-combined-logs"
 
 type RecordBatch struct {
 	BaseOffset           int64
-	BatchLength          int32
+	BatchLength          int32 //`lengthFor:"self-12"`
 	PartitionLeaderEpoch int32
 	VersionMagic         int8
 	CRC                  int32
@@ -27,19 +27,19 @@ type RecordBatch struct {
 	ProducerId           int64
 	ProducerEpoch        int16
 	BaseSequence         int32
-	RecordsLength        int32
+	RecordsLength        int32        `lengthFor:"Records" binary:"int32"`
 	Records              []DiskRecord `length:"RecordsLength"`
 }
 
 type DiskRecord struct {
-	Length         int64 `binary:"varint"`
+	Length         int64 `binary:"varint"` // lengthFor:"self"
 	Attributes     int8
 	TimestampDelta int64       `binary:"varint"`
 	OffsetDelta    int64       `binary:"varint"`
-	KeyLength      int64       `binary:"varint"`
+	KeyLength      int64       `binary:"varint" lengthFor:"Key"`
 	Key            []byte      `length:"KeyLength"`
-	ValueLength    int64       `binary:"varint"` //This is a byte length for the Feature Record
-	Value          FramedValue // This needs to be polymorphic
+	ValueLength    int64       `binary:"varint" lengthFor:"Value"` //This is a byte length for the Feature Record
+	Value          FramedValue `length:"ValueLength"`              // This needs to be polymorphic
 	Headers        []RecordHeader
 }
 
