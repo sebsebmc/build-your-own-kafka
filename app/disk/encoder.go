@@ -63,16 +63,32 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		switch val.Kind() {
 		case reflect.Int8:
 			slog.Debug("int8", "val", val.Int())
-			out = append(out, byte(val.Int()))
+			if field.Tag.Get("binary") == "varint" {
+				out = binary.AppendVarint(out, int64(val.Int()))
+			} else {
+				out = append(out, byte(val.Int()))
+			}
 		case reflect.Int16:
 			slog.Debug("int16", "val", val.Int())
-			out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
+			if field.Tag.Get("binary") == "varint" {
+				out = binary.AppendVarint(out, int64(val.Int()))
+			} else {
+				out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
+			}
 		case reflect.Int32:
 			slog.Debug("int32", "val", val.Int())
-			out = binary.BigEndian.AppendUint32(out, uint32(val.Int()))
+			if field.Tag.Get("binary") == "varint" {
+				out = binary.AppendVarint(out, int64(val.Int()))
+			} else {
+				out = binary.BigEndian.AppendUint32(out, uint32(val.Int()))
+			}
 		case reflect.Int64:
 			slog.Debug("int64", "val", val.Int())
-			out = binary.BigEndian.AppendUint64(out, uint64(val.Int()))
+			if field.Tag.Get("binary") == "varint" {
+				out = binary.AppendVarint(out, int64(val.Int()))
+			} else {
+				out = binary.BigEndian.AppendUint64(out, uint64(val.Int()))
+			}
 		case reflect.Array, reflect.Slice:
 			// Special case []byte
 			if val.Type() == reflect.TypeFor[uuid.UUID]() {
