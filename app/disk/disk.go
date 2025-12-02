@@ -2,6 +2,7 @@ package disk
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -147,6 +148,7 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	}
 	// slog.Debug("Writing BatchLength", "val", len(bytes)-12)
 	binary.BigEndian.PutUint32(bytes[8:12], uint32(len(bytes)-12))
+	fmt.Println(hex.Dump(bytes))
 	fh.Write(bytes)
 	return nil
 }
