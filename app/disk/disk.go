@@ -145,6 +145,7 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	if err != nil {
 		return err
 	}
+	binary.BigEndian.PutUint32(bytes[8:12], uint32(len(bytes)-12))
 	fh.Write(bytes)
 	return nil
 }
