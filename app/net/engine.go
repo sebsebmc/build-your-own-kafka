@@ -35,7 +35,10 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 				},
 			}
 		} else {
-			e.diskManager.WriteRecord(dt, t.PartitionData[0].Index, t.PartitionData[0].Records)
+			err = e.diskManager.WriteRecord(dt, t.PartitionData[0].Index, t.PartitionData[0].Records)
+			if err != nil {
+				slog.Error("failed to write record", "error", err)
+			}
 			rbody.Responses[idx] = ProduceResponse{
 				Name: t.Name,
 				PartitionResponses: []ProducePartitionResponse{

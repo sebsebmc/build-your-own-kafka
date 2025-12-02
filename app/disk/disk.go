@@ -127,11 +127,11 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	pdir := fmt.Sprintf("%s-%d", dt.Name, 0)
 	filename := path.Join(LOGS_DIR, pdir, "00000000000000000000.log")
 	fh, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	slog.Debug("Writing Records", "file", filename)
 	if err != nil {
 		return err
 	}
 	defer fh.Close()
+	slog.Debug("Writing Records", "file", filename)
 	e := Encoder{}
 	bytes, err := e.Encode(RecordBatch{BaseOffset: 0, Records: []DiskRecord{
 		{
@@ -145,6 +145,7 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	if err != nil {
 		return err
 	}
+	slog.Debug("Writing BatchLength", "val", len(bytes)-12)
 	binary.BigEndian.PutUint32(bytes[8:12], uint32(len(bytes)-12))
 	fh.Write(bytes)
 	return nil

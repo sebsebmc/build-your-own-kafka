@@ -142,6 +142,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 }
 
 func (e Encoder) encodeLength(details lengthDetails, len int) []byte {
+	slog.Debug("encoding length", "val", len, "encoding", details.encoding)
 	var out []byte
 	switch details.encoding {
 	case "int32":
