@@ -17,8 +17,6 @@ func (e Encoder) Encode(value any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The first bits of a message are the message length, less the message length
-	binary.BigEndian.PutUint32(out, uint32(len(out)-4))
 	return out, nil
 }
 
@@ -84,7 +82,9 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 				continue
 			} else if val.Type().Elem().Kind() == reflect.Uint8 {
 				innerBytes := val.Bytes()
-				out = binary.AppendUvarint(out, uint64(len(innerBytes)+1))
+				if field.Tag.Get("length") != "nil" {
+					out = binary.AppendUvarint(out, uint64(len(innerBytes)+1))
+				}
 				out = append(out, innerBytes...)
 				continue
 			}
