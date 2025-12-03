@@ -53,14 +53,14 @@ func (rb RecordBatch) MarshalBinary() []byte {
 	out = binary.BigEndian.AppendUint32(out, uint32(rb.BaseSequence))
 	out = binary.BigEndian.AppendUint32(out, uint32(len(rb.Records)))
 
-	for _, r := range rb.Records {
+	for idx, r := range rb.Records {
+		r.OffsetDelta = int64(idx)
 		recBytes := r.MarshalBinary()
 		out = append(out, recBytes...)
 	}
 	length = len(out)
 
-	crc32q := crc32.MakeTable(crc32.Castagnoli)
-	binary.BigEndian.PutUint32(out[17:], crc32.Checksum(out[21:], crc32q))
+	binary.BigEndian.PutUint32(out[17:], crc32.Checksum(out[21:], crc32.MakeTable(crc32.Castagnoli)))
 
 	// BatchLength
 	binary.BigEndian.PutUint32(out[8:12], uint32(length))
@@ -89,12 +89,13 @@ func (dr DiskRecord) MarshalBinary() []byte {
 		out = binary.AppendVarint(out, -1)
 	} else {
 		out = binary.AppendVarint(out, int64(len(dr.Key)))
+		out = append(out, dr.Key...)
 	}
 	rec := dr.Value.(Record)
 	out = binary.AppendVarint(out, int64(len(rec.Data)))
 	out = append(out, rec.Data...)
 
-	out = binary.AppendUvarint(out, uint64(len(dr.Headers)))
+	out = binary.AppendVarint(out, int64(len(dr.Headers)))
 	if len(dr.Headers) > 0 {
 		slog.Warn("RecordHeader is not empty")
 	}
