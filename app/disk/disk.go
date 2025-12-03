@@ -63,7 +63,7 @@ func (rb RecordBatch) MarshalBinary() []byte {
 	binary.BigEndian.PutUint32(out[17:], crc32.Checksum(out[21:], crc32.MakeTable(crc32.Castagnoli)))
 
 	// BatchLength
-	binary.BigEndian.PutUint32(out[8:12], uint32(length))
+	binary.BigEndian.PutUint32(out[8:12], uint32(length-12))
 	return out
 }
 
