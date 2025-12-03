@@ -17,40 +17,36 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 	rbody := new(ProduceResponseV11)
 	rbody.Responses = make([]ProduceResponse, len(reqBody.TopicData))
 	for idx, t := range reqBody.TopicData {
-		dt, err := e.diskManager.GetTopic(t.Name)
-
-		slog.Debug("Handle Producev11", "topic", t.Name, "partitions", len(t.PartitionData))
+		rbody.Responses[idx] = ProduceResponse{
+			Name:               t.Name,
+			PartitionResponses: make([]ProducePartitionResponse, 0),
+		}
 		for _, p := range t.PartitionData {
+			slog.Debug("Handle Producev11", "topic", t.Name, "partitions", len(t.PartitionData))
+			dt, err := e.diskManager.GetTopic(t.Name)
 			if err != nil || !dt.HasPartition(p.Index) {
-				rbody.Responses[idx] = ProduceResponse{
-					Name: t.Name,
-					PartitionResponses: []ProducePartitionResponse{
-						{
-							ErrorCode:       UNKNOWN_TOPIC_OR_PARTITION,
-							Index:           p.Index,
-							BaseOffset:      -1,
-							LogAppendTimeMs: -1,
-							LogStartOffset:  -1,
-						},
-					},
-				}
+				rbody.Responses[idx].PartitionResponses = append(rbody.Responses[idx].PartitionResponses,
+					ProducePartitionResponse{
+						ErrorCode:       UNKNOWN_TOPIC_OR_PARTITION,
+						Index:           p.Index,
+						BaseOffset:      -1,
+						LogAppendTimeMs: -1,
+						LogStartOffset:  -1,
+					})
 			} else {
 				err = e.diskManager.WriteRecord(dt, p.Index, p.Records)
 				if err != nil {
 					slog.Error("failed to write record", "error", err)
 				}
-				rbody.Responses[idx] = ProduceResponse{
-					Name: t.Name,
-					PartitionResponses: []ProducePartitionResponse{
-						{
-							ErrorCode:       0,
-							Index:           p.Index, // TODO
-							BaseOffset:      0,
-							LogAppendTimeMs: -1,
-							LogStartOffset:  0,
-						},
-					},
-				}
+				rbody.Responses[idx].PartitionResponses = append(rbody.Responses[idx].PartitionResponses,
+					ProducePartitionResponse{
+
+						ErrorCode:       0,
+						Index:           p.Index, // TODO
+						BaseOffset:      0,
+						LogAppendTimeMs: -1,
+						LogStartOffset:  0,
+					})
 			}
 		}
 	}
