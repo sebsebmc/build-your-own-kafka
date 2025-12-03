@@ -87,6 +87,7 @@ func (dr DiskRecord) MarshalBinary() []byte {
 		out = binary.AppendVarint(out, int64(len(dr.Key)))
 	}
 	rec := dr.Value.(Record)
+	out = binary.AppendVarint(out, int64(len(rec.Data)))
 	out = append(out, rec.Data...)
 
 	out = binary.AppendUvarint(out, uint64(len(dr.Headers)))
