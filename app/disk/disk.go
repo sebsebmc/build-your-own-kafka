@@ -46,6 +46,7 @@ func (rb RecordBatch) MarshalBinary() []byte {
 	out = binary.BigEndian.AppendUint16(out, uint16(rb.Attributes))
 	out = binary.BigEndian.AppendUint32(out, uint32(rb.LastOffsetData))
 	out = binary.BigEndian.AppendUint64(out, uint64(rb.BaseTimestamp))
+	out = binary.BigEndian.AppendUint64(out, uint64(rb.MaxTimestamp))
 	out = binary.BigEndian.AppendUint64(out, uint64(rb.ProducerId))
 	out = binary.BigEndian.AppendUint16(out, uint16(rb.ProducerEpoch))
 	out = binary.BigEndian.AppendUint32(out, uint32(rb.BaseSequence))
