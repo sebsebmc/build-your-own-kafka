@@ -86,7 +86,8 @@ func (dr DiskRecord) MarshalBinary() []byte {
 	out = binary.AppendVarint(out, dr.TimestampDelta)
 	out = binary.AppendVarint(out, dr.OffsetDelta)
 	if dr.Key == nil {
-		out = binary.AppendVarint(out, -1)
+		// out = binary.AppendVarint(out, -1)
+		out = binary.AppendUvarint(out, 1)
 	} else {
 		out = binary.AppendVarint(out, int64(len(dr.Key)))
 		out = append(out, dr.Key...)
