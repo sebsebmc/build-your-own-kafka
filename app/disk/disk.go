@@ -196,7 +196,7 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	}
 	defer fh.Close()
 	slog.Debug("Writing Records", "file", filename)
-	rb := RecordBatch{BaseOffset: 0, VersionMagic: 2, Records: []DiskRecord{
+	rb := RecordBatch{BaseOffset: 0, VersionMagic: 0, Records: []DiskRecord{
 		{
 			Value: Record{
 				Data: record,
