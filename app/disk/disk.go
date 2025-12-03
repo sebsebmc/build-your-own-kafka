@@ -2,7 +2,6 @@ package disk
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -197,18 +196,18 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	}
 	defer fh.Close()
 	slog.Debug("Writing Records", "file", filename)
-	rb := RecordBatch{BaseOffset: 0, VersionMagic: 2, Records: []DiskRecord{
-		{
-			Value: Record{
-				Data: record,
-			},
-		},
-	}}
+	// rb := RecordBatch{BaseOffset: 0, VersionMagic: 2, Records: []DiskRecord{
+	// 	{
+	// 		Value: Record{
+	// 			Data: record,
+	// 		},
+	// 	},
+	// }}
 
-	bytes := rb.MarshalBinary()
+	// bytes := rb.MarshalBinary()
 
-	fmt.Println(hex.Dump(bytes))
-	fh.Write(bytes)
+	// fmt.Println(hex.Dump(bytes))
+	fh.Write(record)
 	return nil
 }
 
