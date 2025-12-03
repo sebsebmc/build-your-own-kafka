@@ -32,6 +32,36 @@ type RecordBatch struct {
 	Records              []DiskRecord `length:"RecordsLength"`
 }
 
+func (rb RecordBatch) MarshalBinary() []byte {
+	out := make([]byte, 0, 64)
+	length := 0
+
+	out = binary.BigEndian.AppendUint64(out, uint64(rb.BaseOffset))
+	// skip 4 bytes
+	out = append(out, []byte{0, 0, 0, 0}...)
+
+	out = binary.BigEndian.AppendUint32(out, uint32(rb.PartitionLeaderEpoch))
+	out = append(out, uint8(rb.VersionMagic))
+	out = binary.BigEndian.AppendUint32(out, uint32(rb.CRC))
+	out = binary.BigEndian.AppendUint16(out, uint16(rb.Attributes))
+	out = binary.BigEndian.AppendUint32(out, uint32(rb.LastOffsetData))
+	out = binary.BigEndian.AppendUint64(out, uint64(rb.BaseTimestamp))
+	out = binary.BigEndian.AppendUint64(out, uint64(rb.ProducerId))
+	out = binary.BigEndian.AppendUint16(out, uint16(rb.ProducerEpoch))
+	out = binary.BigEndian.AppendUint32(out, uint32(rb.BaseSequence))
+	out = binary.BigEndian.AppendUint32(out, uint32(len(rb.Records)))
+
+	for _, r := range rb.Records {
+		recBytes := r.MarshalBinary()
+		out = append(out, recBytes...)
+	}
+	length = len(out)
+
+	// BatchLength
+	binary.BigEndian.PutUint32(out[8:12], uint32(length))
+	return out
+}
+
 type DiskRecord struct {
 	Length         int64 `binary:"varint"` // lengthFor:"self"
 	Attributes     int8
@@ -42,6 +72,31 @@ type DiskRecord struct {
 	ValueLength    int64       `binary:"varint" lengthFor:"Value"` //This is a byte length for the Feature Record
 	Value          FramedValue `length:"ValueLength"`              // This needs to be polymorphic
 	Headers        []RecordHeader
+}
+
+func (dr DiskRecord) MarshalBinary() []byte {
+	out := make([]byte, 0)
+
+	out = append(out, byte(dr.Attributes))
+	out = binary.AppendVarint(out, dr.TimestampDelta)
+	out = binary.AppendVarint(out, dr.OffsetDelta)
+	if dr.Key == nil {
+		out = binary.AppendVarint(out, -1)
+	} else {
+		out = binary.AppendVarint(out, int64(len(dr.Key)))
+	}
+	rec := dr.Value.(Record)
+	out = append(out, rec.Data...)
+
+	out = binary.AppendUvarint(out, uint64(len(dr.Headers)))
+	if len(dr.Headers) > 0 {
+		slog.Warn("RecordHeader is not empty")
+	}
+
+	lenBytes := binary.AppendVarint([]byte{}, int64(len(out)))
+	out = append(lenBytes, out...)
+
+	return out
 }
 
 type Record struct {
@@ -133,8 +188,7 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	}
 	defer fh.Close()
 	slog.Debug("Writing Records", "file", filename)
-	e := Encoder{}
-	bytes, err := e.Encode(RecordBatch{BaseOffset: 0, VersionMagic: 2, Records: []DiskRecord{
+	rb := RecordBatch{BaseOffset: 0, VersionMagic: 2, Records: []DiskRecord{
 		{
 			Value: Record{
 				Data: record,
@@ -142,10 +196,10 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 			//TODO: FramedValue actually needs to become some other interface
 			//TODO: Would be good to add some tag support for encoding length
 		},
-	}})
-	if err != nil {
-		return err
-	}
+	}}
+
+	bytes := rb.MarshalBinary()
+
 	// slog.Debug("Writing BatchLength", "val", len(bytes)-12)
 	binary.BigEndian.PutUint32(bytes[8:12], uint32(len(bytes)-12))
 	fmt.Println(hex.Dump(bytes))
