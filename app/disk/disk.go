@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"log/slog"
 	"os"
@@ -57,6 +58,9 @@ func (rb RecordBatch) MarshalBinary() []byte {
 		out = append(out, recBytes...)
 	}
 	length = len(out)
+
+	crc32q := crc32.MakeTable(crc32.Castagnoli)
+	binary.BigEndian.PutUint32(out[17:], crc32.Checksum(out[21:], crc32q))
 
 	// BatchLength
 	binary.BigEndian.PutUint32(out[8:12], uint32(length))
