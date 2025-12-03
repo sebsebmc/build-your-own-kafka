@@ -44,6 +44,7 @@ func (rb RecordBatch) MarshalBinary() []byte {
 	out = binary.BigEndian.AppendUint32(out, uint32(rb.PartitionLeaderEpoch))
 	out = append(out, uint8(rb.VersionMagic))
 	out = binary.BigEndian.AppendUint32(out, uint32(rb.CRC))
+	crcStart := len(out)
 	out = binary.BigEndian.AppendUint16(out, uint16(rb.Attributes))
 	out = binary.BigEndian.AppendUint32(out, uint32(rb.LastOffsetData))
 	out = binary.BigEndian.AppendUint64(out, uint64(rb.BaseTimestamp))
@@ -60,7 +61,7 @@ func (rb RecordBatch) MarshalBinary() []byte {
 	}
 	length = len(out)
 
-	binary.BigEndian.PutUint32(out[17:], crc32.Checksum(out[21:], crc32.MakeTable(crc32.Castagnoli)))
+	binary.BigEndian.PutUint32(out[crcStart-4:], crc32.Checksum(out[crcStart:], crc32.MakeTable(crc32.Castagnoli)))
 
 	// BatchLength
 	binary.BigEndian.PutUint32(out[8:12], uint32(length-12))
@@ -196,7 +197,7 @@ func (dm *DiskManager) WriteRecord(dt *Topic, partitionIdx int32, record []byte)
 	}
 	defer fh.Close()
 	slog.Debug("Writing Records", "file", filename)
-	rb := RecordBatch{BaseOffset: 0, VersionMagic: 0, Records: []DiskRecord{
+	rb := RecordBatch{BaseOffset: 0, VersionMagic: 2, Records: []DiskRecord{
 		{
 			Value: Record{
 				Data: record,
