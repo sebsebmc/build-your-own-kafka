@@ -100,7 +100,7 @@ func (dr DiskRecord) MarshalBinary() []byte {
 		slog.Warn("RecordHeader is not empty")
 	}
 
-	lenBytes := binary.AppendVarint([]byte{}, int64(len(out)))
+	lenBytes := binary.AppendVarint(make([]byte, 0), int64(len(out)))
 	out = append(lenBytes, out...)
 
 	return out
