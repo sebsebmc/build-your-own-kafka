@@ -48,6 +48,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		// So if we do 2 passes we figure out which fields are lengths, we can record where in the bytestream
 		// to put the lengths, and after recursing we have a length that we can write in the right place
 		if lf, ok := field.Tag.Lookup("lengthFor"); ok {
+			slog.Debug("Skipping lengthFor field", "name", field.Name)
 			lengthFields[lf] = lengthDetails{len(out), field.Tag.Get("binary")}
 			continue
 		}
@@ -59,31 +60,31 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 		// ... But if we use a varint encoding, then later length fields in this struct would be in the wrong place?
 		// easiest solution to that is to go backwards
 
-		slog.Debug("encoding", "field", field.Name, "type", field.Type.Name())
+		slog.Debug("encoding", "field", field.Name, "type", field.Type.String())
 		switch val.Kind() {
 		case reflect.Int8:
-			slog.Debug("int8", "val", val.Int())
+			slog.Debug("int8", "val", val.Int(), "encoding", field.Tag.Get("binary"))
 			if field.Tag.Get("binary") == "varint" {
 				out = binary.AppendVarint(out, int64(val.Int()))
 			} else {
 				out = append(out, byte(val.Int()))
 			}
 		case reflect.Int16:
-			slog.Debug("int16", "val", val.Int())
+			slog.Debug("int16", "val", val.Int(), "encoding", field.Tag.Get("binary"))
 			if field.Tag.Get("binary") == "varint" {
 				out = binary.AppendVarint(out, int64(val.Int()))
 			} else {
 				out = binary.BigEndian.AppendUint16(out, uint16(val.Int()))
 			}
 		case reflect.Int32:
-			slog.Debug("int32", "val", val.Int())
+			slog.Debug("int32", "val", val.Int(), "encoding", field.Tag.Get("binary"))
 			if field.Tag.Get("binary") == "varint" {
 				out = binary.AppendVarint(out, int64(val.Int()))
 			} else {
 				out = binary.BigEndian.AppendUint32(out, uint32(val.Int()))
 			}
 		case reflect.Int64:
-			slog.Debug("int64", "val", val.Int())
+			slog.Debug("int64", "val", val.Int(), "encoding", field.Tag.Get("binary"))
 			if field.Tag.Get("binary") == "varint" {
 				out = binary.AppendVarint(out, int64(val.Int()))
 			} else {
@@ -99,7 +100,17 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			} else if val.Type().Elem().Kind() == reflect.Uint8 {
 				innerBytes := val.Bytes()
 				if field.Tag.Get("length") != "nil" {
-					out = binary.AppendUvarint(out, uint64(len(innerBytes)+1))
+					if field.Tag.Get("nullable") == "true" {
+						slog.Debug("encoding", "length", len(innerBytes), "encoding", "varint")
+						if len(innerBytes) == 0 {
+							out = binary.AppendVarint(out, int64(-1))
+						} else {
+							out = binary.AppendVarint(out, int64(len(innerBytes)))
+						}
+					} else {
+						slog.Debug("encoding", "length", len(innerBytes), "encoding", "uvarint+1")
+						out = binary.AppendUvarint(out, uint64(len(innerBytes)+1))
+					}
 				}
 				out = append(out, innerBytes...)
 				continue
@@ -110,6 +121,10 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 			if val.Type().Elem().Kind() != reflect.Struct {
 				slog.Warn("Skipping array of non-struct types", "name", val.Type().String())
 				continue
+			}
+			if field.Tag.Get("length") != "nil" {
+				slog.Debug("encoding", "length", val.Len(), "encoding", "int32")
+				out = binary.BigEndian.AppendUint32(out, uint32(val.Len()))
 			}
 			for i := 0; i < val.Len(); i++ {
 				out2, err := e.encodeInner(val.Index(i).Interface())
@@ -129,6 +144,7 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 				return nil, err
 			}
 			if details, ok := lengthFields[field.Name]; ok {
+				slog.Debug("encoding length", "field", field.Name)
 				encLen := e.encodeLength(details, len(out2))
 				// For now we assume length fields come right before their fields
 				out = append(out, encLen...)
@@ -157,16 +173,16 @@ func (e Encoder) encodeInner(value any) ([]byte, error) {
 	return out, nil
 }
 
-func (e Encoder) encodeLength(details lengthDetails, len int) []byte {
-	slog.Debug("encoding length", "val", len, "encoding", details.encoding)
+func (e Encoder) encodeLength(details lengthDetails, length int) []byte {
+	slog.Debug("encoding length", "val", length, "encoding", details.encoding)
 	var out []byte
 	switch details.encoding {
 	case "int32":
 		out = make([]byte, 4)
-		binary.BigEndian.PutUint32(out, uint32(len))
+		binary.BigEndian.PutUint32(out, uint32(length))
 	case "varint":
 		out := make([]byte, 0)
-		binary.AppendVarint(out, int64(len))
+		binary.AppendVarint(out, int64(length))
 	default:
 		slog.Error("Unknown length encoding")
 	}

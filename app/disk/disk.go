@@ -24,7 +24,7 @@ type RecordBatch struct {
 	Attributes           int16
 	LastOffsetData       int32
 	BaseTimestamp        int64
-	MaxTimestemp         int64
+	MaxTimestamp         int64
 	ProducerId           int64
 	ProducerEpoch        int16
 	BaseSequence         int32
@@ -38,7 +38,7 @@ type DiskRecord struct {
 	TimestampDelta int64       `binary:"varint"`
 	OffsetDelta    int64       `binary:"varint"`
 	KeyLength      int64       `binary:"varint" lengthFor:"Key"`
-	Key            []byte      `length:"KeyLength"`
+	Key            []byte      `length:"KeyLength" nullable:"true"`
 	ValueLength    int64       `binary:"varint" lengthFor:"Value"` //This is a byte length for the Feature Record
 	Value          FramedValue `length:"ValueLength"`              // This needs to be polymorphic
 	Headers        []RecordHeader
