@@ -40,7 +40,6 @@ func (e *Engine) HandleProduceV11(reqBody *ProduceRequestV11) *ProduceResponseV1
 				}
 				rbody.Responses[idx].PartitionResponses = append(rbody.Responses[idx].PartitionResponses,
 					ProducePartitionResponse{
-
 						ErrorCode:       0,
 						Index:           p.Index, // TODO
 						BaseOffset:      0,
